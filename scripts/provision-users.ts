@@ -1,9 +1,12 @@
 import { randomInt } from "node:crypto";
 import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { loadEnvConfig } from "@next/env";
 import { createClient } from "@supabase/supabase-js";
 import { ATHLETE_ROSTER } from "../src/lib/constants";
 import { internalEmailForUsername, normalizeUsername } from "../src/lib/utils";
+
+loadEnvConfig(process.cwd());
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -15,11 +18,19 @@ const args = new Map(process.argv.slice(2).map((argument) => {
   return [key, value.join("=") || "true"];
 }));
 
-if (args.has("admin-username")) await provisionAdmin();
-if (args.has("roster")) await provisionRoster();
-if (!args.has("admin-username") && !args.has("roster")) {
-  process.stdout.write("Usage:\n  npm run provision -- --admin-username=coach.admin --admin-name=\"Coach Admin\" --admin-password=Secure1234\n  npm run provision -- --roster\n");
+async function main() {
+  if (args.has("admin-username")) await provisionAdmin();
+  if (args.has("roster")) await provisionRoster();
+  if (!args.has("admin-username") && !args.has("roster")) {
+    process.stdout.write("Usage:\n  npm run provision -- --admin-username=coach.admin --admin-name=\"Coach Admin\" --admin-password=Secure1234\n  npm run provision -- --roster\n");
+  }
 }
+
+main().catch((error: unknown) => {
+  const message = error instanceof Error ? error.message : String(error);
+  process.stderr.write(`Provisioning failed: ${message}\n`);
+  process.exitCode = 1;
+});
 
 async function provisionAdmin() {
   const username = String(args.get("admin-username") ?? "").toLowerCase();
