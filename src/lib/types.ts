@@ -150,6 +150,16 @@ export interface Weekly25yPoint {
   deltaSeconds: number;
 }
 
+export interface Weekly3x100Point {
+  weekStart: string;
+  stroke: SwimStroke | "legacy";
+  athleteId: string;
+  athleteName: string;
+  mondaySeconds: number;
+  fridaySeconds: number;
+  deltaSeconds: number;
+}
+
 export interface DashboardData {
   summary: DashboardSummary;
   wellness: WellnessPoint[];
@@ -160,4 +170,5 @@ export interface DashboardData {
   fatigue: FatiguePoint[];
   effort: SessionEffortPoint[];
   weekly25y: Weekly25yPoint[];
+  weekly3x100: Weekly3x100Point[];
 }

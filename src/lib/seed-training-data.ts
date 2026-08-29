@@ -143,13 +143,17 @@ function makeSessionRow(
     if (strokeIndex === 1) row.time_25y_freestyle_seconds = round(test25);
     if (strokeIndex === 2) row.time_25y_fly_seconds = round(test25);
     if (strokeIndex === 3) row.time_25y_backstroke_seconds = round(test25);
-    const testVariation = (positiveModulo(weekSeed * 2 + athlete.athleteIndex * 5, 11) - 5) * 0.35 + (isFridayTest ? -0.25 : 0.25);
-    const freestylePace = profile.pace3x100 + testVariation + athlete.athleteIndex * 0.04;
-    row.pace_3x100_freestyle_seconds = round(freestylePace);
-    row.pace_3x100_fly_seconds = round(freestylePace + 7 + athlete.athleteIndex * 0.04);
-    row.pace_3x100_backstroke_seconds = round(freestylePace + 9 + athlete.athleteIndex * 0.05);
-    row.pace_3x100_breaststroke_seconds = round(freestylePace + 14 + athlete.athleteIndex * 0.06);
-    row.pace_3x100_im_seconds = round(freestylePace + 6 + athlete.athleteIndex * 0.035);
+    const paceVariation = (positiveModulo(weekSeed * 2 + athlete.athleteIndex * 5, 11) - 5) * 0.35;
+    const freestylePace = profile.pace3x100 + paceVariation + athlete.athleteIndex * 0.04;
+    const paceDeltas = [-1.4, -0.85, -0.4, 0.35, 0.75, 1.15] as const;
+    const pairedPace = (mondayPace: number, strokeIndex: number) => round(mondayPace + (isFridayTest
+      ? paceDeltas[positiveModulo(weekSeed + athlete.athleteIndex * 2 + strokeIndex * 3, paceDeltas.length)]
+      : 0));
+    row.pace_3x100_freestyle_seconds = pairedPace(freestylePace, 0);
+    row.pace_3x100_fly_seconds = pairedPace(freestylePace + 7 + athlete.athleteIndex * 0.04, 1);
+    row.pace_3x100_backstroke_seconds = pairedPace(freestylePace + 9 + athlete.athleteIndex * 0.05, 2);
+    row.pace_3x100_breaststroke_seconds = pairedPace(freestylePace + 14 + athlete.athleteIndex * 0.06, 3);
+    row.pace_3x100_im_seconds = pairedPace(freestylePace + 6 + athlete.athleteIndex * 0.035, 4);
     row.kick_count = 20 + athlete.athleteIndex % 6 + variation;
     row.stroke_count = 32 + athlete.athleteIndex % 7 + variation;
   } else if (!sessionKey.includes("lift")) {

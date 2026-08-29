@@ -8,6 +8,7 @@ import type {
   SessionEffortPoint,
   SwimTestPoint,
   WellnessPoint,
+  Weekly3x100Point,
   Weekly25yPoint,
   ZonePoint,
 } from "@/lib/types";
@@ -88,6 +89,7 @@ export function buildDashboardData(logs: AthleteLog[]): DashboardData {
     fatigue: buildFatiguePoints(sorted),
     effort: buildSessionEffortPoints(sorted),
     weekly25y: buildWeekly25yPoints(sorted),
+    weekly3x100: buildWeekly3x100Points(sorted),
   };
 }
 
@@ -208,6 +210,43 @@ function buildWeekly25yPoints(logs: AthleteLog[]): Weekly25yPoint[] {
       fridaySeconds: fridayResult.seconds,
       deltaSeconds: roundMetric(fridayResult.seconds - mondayResult.seconds),
     });
+  }
+  return pairs.sort((left, right) => left.weekStart.localeCompare(right.weekStart)
+    || left.stroke.localeCompare(right.stroke)
+    || left.athleteName.localeCompare(right.athleteName));
+}
+
+const pace3x100Fields = [
+  { stroke: "breaststroke", key: "pace3x100BreaststrokeSeconds" },
+  { stroke: "freestyle", key: "pace3x100FreestyleSeconds" },
+  { stroke: "fly", key: "pace3x100FlySeconds" },
+  { stroke: "backstroke", key: "pace3x100BackstrokeSeconds" },
+  { stroke: "im", key: "pace3x100ImSeconds" },
+  { stroke: "legacy", key: "pace3x100Seconds" },
+] as const satisfies ReadonlyArray<{ stroke: Weekly3x100Point["stroke"]; key: keyof AthleteLog }>;
+
+function buildWeekly3x100Points(logs: AthleteLog[]): Weekly3x100Point[] {
+  const testLogs = logs.filter((log) => log.sessionKey === "monday_am_test" || log.sessionKey === "friday_am_test");
+  const byAthleteWeek = groupBy(testLogs, (log) => `${log.athleteId}:${mondayOfWeek(log.activityDate)}`);
+  const pairs: Weekly3x100Point[] = [];
+  for (const items of byAthleteWeek.values()) {
+    const monday = items.find((item) => item.sessionKey === "monday_am_test");
+    const friday = items.find((item) => item.sessionKey === "friday_am_test");
+    if (!monday || !friday) continue;
+    for (const field of pace3x100Fields) {
+      const mondaySeconds = monday[field.key];
+      const fridaySeconds = friday[field.key];
+      if (typeof mondaySeconds !== "number" || typeof fridaySeconds !== "number") continue;
+      pairs.push({
+        weekStart: mondayOfWeek(monday.activityDate),
+        stroke: field.stroke,
+        athleteId: monday.athleteId,
+        athleteName: monday.athleteName,
+        mondaySeconds,
+        fridaySeconds,
+        deltaSeconds: roundMetric(fridaySeconds - mondaySeconds),
+      });
+    }
   }
   return pairs.sort((left, right) => left.weekStart.localeCompare(right.weekStart)
     || left.stroke.localeCompare(right.stroke)

@@ -27,7 +27,7 @@ export function Dashboard({ data, compact = false }: { data: DashboardData; comp
       <div className="grid gap-5 xl:grid-cols-2"><WellnessChart data={data.wellness} /><SessionEffortChart data={data.effort} /></div>
       {!compact && <RecoveryChart data={data.recovery} />}
       <HrZoneChart data={data.zones} />
-      {!compact && <SwimTestChart data={data.swimTests} weekly25y={data.weekly25y} />}
+      {!compact && <SwimTestChart data={data.swimTests} weekly25y={data.weekly25y} weekly3x100={data.weekly3x100} />}
     </div>
   );
 }

@@ -17,5 +17,10 @@ describe("demo dashboard data", () => {
       fridaySeconds: 13.98,
       deltaSeconds: -0.18,
     });
+    expect(new Set(data.weekly3x100.map((point) => point.stroke))).toEqual(
+      new Set(["breaststroke", "freestyle", "fly", "backstroke", "im"]),
+    );
+    expect(data.weekly3x100.some((point) => point.deltaSeconds < 0)).toBe(true);
+    expect(data.weekly3x100.some((point) => point.deltaSeconds > 0)).toBe(true);
   });
 });

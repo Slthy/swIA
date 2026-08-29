@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildSecondsDomain, formatSecondsTick, selectWeekly25yPoints } from "@/components/charts/swim-test-chart";
-import type { Weekly25yPoint } from "@/lib/types";
+import { buildSecondsDomain, formatSecondsTick, selectWeekly3x100Points, selectWeekly25yPoints } from "@/components/charts/swim-test-chart";
+import type { Weekly3x100Point, Weekly25yPoint } from "@/lib/types";
 
 describe("swim-test chart axes", () => {
   it("pads a flat series instead of exposing floating-point sentinel-looking ticks", () => {
@@ -35,12 +35,39 @@ describe("swim-test chart axes", () => {
       fastestFriday: { athleteName: "Athlete C", seconds: 9.9 },
     });
   });
+
+  it("applies the same athlete selection rules to 3x100 pairs", () => {
+    const pairs: Weekly3x100Point[] = [
+      pacePair("a", "Athlete A", 65, 63.8),
+      pacePair("b", "Athlete B", 62, 62.5),
+      pacePair("c", "Athlete C", 64, 61.8),
+    ];
+
+    expect(selectWeekly3x100Points(pairs, "best-improvement")[0]).toMatchObject({ athleteName: "Athlete C", deltaSeconds: -2.2 });
+    expect(selectWeekly3x100Points(pairs, "fastest-time")[0]).toMatchObject({
+      athleteName: "Athlete C",
+      fastestMonday: { athleteName: "Athlete B", seconds: 62 },
+      fastestFriday: { athleteName: "Athlete C", seconds: 61.8 },
+    });
+  });
 });
 
 function pair(athleteId: string, athleteName: string, mondaySeconds: number, fridaySeconds: number): Weekly25yPoint {
   return {
     weekStart: "2026-08-24",
     stroke: "breaststroke",
+    athleteId,
+    athleteName,
+    mondaySeconds,
+    fridaySeconds,
+    deltaSeconds: Math.round((fridaySeconds - mondaySeconds) * 100) / 100,
+  };
+}
+
+function pacePair(athleteId: string, athleteName: string, mondaySeconds: number, fridaySeconds: number): Weekly3x100Point {
+  return {
+    weekStart: "2026-08-24",
+    stroke: "freestyle",
     athleteId,
     athleteName,
     mondaySeconds,

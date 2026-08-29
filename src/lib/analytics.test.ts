@@ -45,10 +45,10 @@ describe("dashboard aggregation", () => {
   });
 
   it("keeps athlete pairs separate and computes improvement as a negative Friday-minus-Monday delta", () => {
-    const monday = log("1", "2026-08-24", "a", "monday_am_test", { logType: "monday_test", rpe: 8, fatigue: 6, time25yFreestyleSeconds: 11.1 });
-    const friday = log("2", "2026-08-28", "a", "friday_am_test", { logType: "friday_test", rpe: 7, fatigue: 5, time25yFreestyleSeconds: 10.8 });
-    const secondMonday = log("3", "2026-08-24", "b", "monday_am_test", { logType: "monday_test", time25yFreestyleSeconds: 12.2 });
-    const secondFriday = log("4", "2026-08-28", "b", "friday_am_test", { logType: "friday_test", time25yFreestyleSeconds: 11.9 });
+    const monday = log("1", "2026-08-24", "a", "monday_am_test", { logType: "monday_test", rpe: 8, fatigue: 6, time25yFreestyleSeconds: 11.1, pace3x100FreestyleSeconds: 65 });
+    const friday = log("2", "2026-08-28", "a", "friday_am_test", { logType: "friday_test", rpe: 7, fatigue: 5, time25yFreestyleSeconds: 10.8, pace3x100FreestyleSeconds: 63.8 });
+    const secondMonday = log("3", "2026-08-24", "b", "monday_am_test", { logType: "monday_test", time25yFreestyleSeconds: 12.2, pace3x100FreestyleSeconds: 62 });
+    const secondFriday = log("4", "2026-08-28", "b", "friday_am_test", { logType: "friday_test", time25yFreestyleSeconds: 11.9, pace3x100FreestyleSeconds: 62.5 });
     const data = buildDashboardData([monday, friday, secondMonday, secondFriday]);
     expect(data.weekly25y).toHaveLength(2);
     expect(data.weekly25y[0]).toMatchObject({
@@ -61,6 +61,10 @@ describe("dashboard aggregation", () => {
       deltaSeconds: -0.3,
     });
     expect(data.weekly25y[1]).toMatchObject({ athleteId: "b", mondaySeconds: 12.2, fridaySeconds: 11.9, deltaSeconds: -0.3 });
+    expect(data.weekly3x100).toEqual([
+      expect.objectContaining({ athleteId: "a", stroke: "freestyle", mondaySeconds: 65, fridaySeconds: 63.8, deltaSeconds: -1.2 }),
+      expect.objectContaining({ athleteId: "b", stroke: "freestyle", mondaySeconds: 62, fridaySeconds: 62.5, deltaSeconds: 0.5 }),
+    ]);
     expect(data.effort).toEqual([
       { date: "2026-08-24", sessionKey: "monday_am_test", rpe: 8, fatigue: 6 },
       { date: "2026-08-28", sessionKey: "friday_am_test", rpe: 7, fatigue: 5 },

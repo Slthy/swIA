@@ -30,7 +30,7 @@ describe("chart visibility controls", () => {
   });
 
   it("switches 25y progression between best improvement and fastest time", () => {
-    render(<SwimTestChart data={[]} weekly25y={[{
+    render(<SwimTestChart data={[]} weekly3x100={[]} weekly25y={[{
       weekStart: "2026-08-24",
       stroke: "breaststroke",
       athleteId: "athlete-a",
@@ -45,5 +45,24 @@ describe("chart visibility controls", () => {
     fireEvent.click(fastest);
     expect(best).toHaveAttribute("aria-pressed", "false");
     expect(fastest).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("keeps team average and adds paired progression modes for 3x100", () => {
+    render(<SwimTestChart data={[]} weekly25y={[]} weekly3x100={[{
+      weekStart: "2026-08-24",
+      stroke: "freestyle",
+      athleteId: "athlete-a",
+      athleteName: "Athlete A",
+      mondaySeconds: 65,
+      fridaySeconds: 64,
+      deltaSeconds: -1,
+    }]} />);
+    const average = screen.getByRole("button", { name: "Team average" });
+    const improvement = screen.getByRole("button", { name: "Best improvement" });
+    expect(average).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(improvement);
+    expect(average).toHaveAttribute("aria-pressed", "false");
+    expect(improvement).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByLabelText("Monday to Friday 3x100 delta chart")).toBeInTheDocument();
   });
 });
