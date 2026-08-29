@@ -7,7 +7,8 @@ import { ScaleInput } from "@/components/scale-input";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { SESSION_LABELS } from "@/lib/constants";
-import { getDeviceDateContext, sessionsForDate, type DeviceDateContext } from "@/lib/dates";
+import { getDeviceDateContext, mondayOfWeek, sessionsForDate, type DeviceDateContext } from "@/lib/dates";
+import { STROKE_25_OPTIONS, type Stroke25 } from "@/lib/swim-tests";
 import type { DateSource, LogType, SessionKey } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -27,14 +28,17 @@ const initialValues: Values = {
   kickCount: "", strokeCount: "", zone1Minutes: "", zone2Minutes: "", zone3Minutes: "", zone4Minutes: "", zone5Minutes: "",
 };
 
-export function LogForm({ initialSession, athleteId, preview = false }: { initialSession?: SessionKey; athleteId?: string; preview?: boolean }) {
+export function LogForm({ initialSession, athleteId, monday25yStrokes = {}, preview = false }: { initialSession?: SessionKey; athleteId?: string; monday25yStrokes?: Record<string, Stroke25>; preview?: boolean }) {
   const [context, setContext] = useState<DeviceDateContext | null>(null);
   const [manualDate, setManualDate] = useState(false);
   const [sessionKey, setSessionKey] = useState<SessionKey>("daily_wellness");
   const [values, setValues] = useState(initialValues);
+  const [selected25Stroke, setSelected25Stroke] = useState<Stroke25 | null>(null);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
   const allowedSessions = useMemo(() => context ? sessionsForDate(context.activityDate) : [], [context]);
+  const weekMonday = context ? mondayOfWeek(context.activityDate) : null;
+  const established25Stroke = weekMonday ? monday25yStrokes[weekMonday] : undefined;
 
   useEffect(() => {
     const device = getDeviceDateContext();
@@ -45,6 +49,18 @@ export function LogForm({ initialSession, athleteId, preview = false }: { initia
   useEffect(() => {
     if (context && !allowedSessions.includes(sessionKey)) setSessionKey(allowedSessions[0] ?? "daily_wellness");
   }, [allowedSessions, context, sessionKey]);
+
+  useEffect(() => {
+    if (sessionKey !== "monday_am_test" && sessionKey !== "friday_am_test") return;
+    setSelected25Stroke(established25Stroke ?? null);
+    setValues((current) => ({
+      ...current,
+      time25yBreaststrokeSeconds: "",
+      time25yFreestyleSeconds: "",
+      time25yFlySeconds: "",
+      time25yBackstrokeSeconds: "",
+    }));
+  }, [established25Stroke, sessionKey, weekMonday]);
 
   const logType = logTypeForSession(sessionKey);
   const set = (field: keyof Values, value: string | number) => setValues((current) => ({ ...current, [field]: value }));
@@ -75,7 +91,10 @@ export function LogForm({ initialSession, athleteId, preview = false }: { initia
         </div>
         <div className="h-px bg-[#e6edef]" />
         {logType === "wellness" && <WellnessFields values={values} set={set} />}
-        {(logType === "monday_test" || logType === "friday_test") && <TestFields values={values} set={set} />}
+        {(logType === "monday_test" || logType === "friday_test") && <TestFields values={values} set={set} selected25Stroke={selected25Stroke} onSelect25Stroke={(stroke) => {
+          setSelected25Stroke(stroke);
+          setValues((current) => ({ ...current, time25yBreaststrokeSeconds: "", time25yFreestyleSeconds: "", time25yFlySeconds: "", time25yBackstrokeSeconds: "" }));
+        }} strokeLocked={logType === "friday_test" && Boolean(established25Stroke)} />}
         {logType === "practice" && <PracticeFields values={values} set={set} />}
         {message && <div role="status" className={cn("flex items-start gap-3 rounded-xl px-4 py-3 text-sm", message.type === "success" ? "bg-emerald-50 text-emerald-750" : "bg-red-50 text-red-700")}>{message.type === "success" ? <CheckCircle2 className="mt-0.5 size-4 shrink-0" /> : <Info className="mt-0.5 size-4 shrink-0" />}<span>{message.text}</span></div>}
         <Button type="button" disabled={pending} onClick={submit} className="w-full sm:w-auto">{pending ? "Saving…" : "Save entry"}</Button>
@@ -86,18 +105,17 @@ export function LogForm({ initialSession, athleteId, preview = false }: { initia
 }
 
 function WellnessFields({ values, set }: FieldProps) { return <div className="space-y-7"><ScaleInput label="Morning soreness" value={values.soreness} onChange={(value) => set("soreness", value)} lowLabel="1 · Fresh" highLabel="10 · Sore" /><ScaleInput label="Academic & life stress" value={values.academicStress} onChange={(value) => set("academicStress", value)} /><ScaleInput label="Nutrition & hydration" value={values.nutrition} onChange={(value) => set("nutrition", value)} /><div className="grid gap-4 sm:grid-cols-2"><NumberField label="Resting heart rate" suffix="bpm" value={values.restingHr} onChange={(value) => set("restingHr", value)} min={20} max={250} /><NumberField label="Sleep duration" suffix="hours" value={values.sleepHours} onChange={(value) => set("sleepHours", value)} min={0} max={24} step="0.25" /></div></div>; }
-function TestFields({ values, set }: FieldProps) {
+function TestFields({ values, set, selected25Stroke, onSelect25Stroke, strokeLocked }: FieldProps & { selected25Stroke: Stroke25 | null; onSelect25Stroke: (stroke: Stroke25 | null) => void; strokeLocked: boolean }) {
+  const selectedField = selected25Stroke ? stroke25Fields[selected25Stroke] : null;
   return <div className="space-y-7">
     <ScaleInput label="Session RPE" value={values.rpe} onChange={(value) => set("rpe", value)} />
     <ScaleInput label="Post-session fatigue" value={values.fatigue} onChange={(value) => set("fatigue", value)} />
     <div>
       <p className="text-sm font-bold text-[#304a5d]">25y time by stroke <span className="font-normal text-[#82929d]">· seconds</span></p>
-      <p className="mt-1 text-xs text-[#82929d]">Enter only the strokes tested in this session.</p>
-      <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <NumberField label="Breaststroke" suffix="sec" value={values.time25yBreaststrokeSeconds} onChange={(value) => set("time25yBreaststrokeSeconds", value)} step="0.01" />
-        <NumberField label="Freestyle" suffix="sec" value={values.time25yFreestyleSeconds} onChange={(value) => set("time25yFreestyleSeconds", value)} step="0.01" />
-        <NumberField label="Fly" suffix="sec" value={values.time25yFlySeconds} onChange={(value) => set("time25yFlySeconds", value)} step="0.01" />
-        <NumberField label="Backstroke" suffix="sec" value={values.time25yBackstrokeSeconds} onChange={(value) => set("time25yBackstrokeSeconds", value)} step="0.01" />
+      <p className="mt-1 text-xs text-[#82929d]">Monday establishes the stroke; Friday repeats that stroke for a valid weekly delta.</p>
+      <div className="mt-3 grid gap-4 sm:grid-cols-2">
+        <label><span className="mb-2 block text-xs font-semibold text-[#526778]">Weekly stroke</span><select value={selected25Stroke ?? ""} disabled={strokeLocked} onChange={(event) => onSelect25Stroke(event.target.value ? event.target.value as Stroke25 : null)} className="min-h-12 w-full rounded-xl border border-[#d5e0e5] bg-white px-3 text-sm font-semibold text-[#304a5d] outline-none disabled:bg-[#f0f4f5]"><option value="">Choose a stroke</option>{STROKE_25_OPTIONS.map((stroke) => <option key={stroke.value} value={stroke.value}>{stroke.label}</option>)}</select>{strokeLocked && <span className="mt-1.5 block text-xs text-[#2f7d62]">Locked to Monday’s stroke.</span>}</label>
+        {selectedField ? <NumberField label={`${STROKE_25_OPTIONS.find((stroke) => stroke.value === selected25Stroke)?.label} time`} suffix="sec" value={values[selectedField]} onChange={(value) => set(selectedField, value)} step="0.01" /> : <div className="grid min-h-20 place-items-center rounded-xl border border-dashed border-[#d5e0e5] bg-[#f9fbfb] px-4 text-center text-xs text-[#82929d]">Choose the weekly stroke to enter a 25y time.</div>}
       </div>
     </div>
     <div>
@@ -114,6 +132,13 @@ function TestFields({ values, set }: FieldProps) {
     <div className="grid gap-4 sm:grid-cols-2"><NumberField label="Kick count" value={values.kickCount} onChange={(value) => set("kickCount", value)} /><NumberField label="Stroke count" value={values.strokeCount} onChange={(value) => set("strokeCount", value)} /></div>
   </div>;
 }
+
+const stroke25Fields: Record<Stroke25, keyof Pick<Values, "time25yBreaststrokeSeconds" | "time25yFreestyleSeconds" | "time25yFlySeconds" | "time25yBackstrokeSeconds">> = {
+  breaststroke: "time25yBreaststrokeSeconds",
+  freestyle: "time25yFreestyleSeconds",
+  fly: "time25yFlySeconds",
+  backstroke: "time25yBackstrokeSeconds",
+};
 function PracticeFields({ values, set }: FieldProps) { return <div className="space-y-7"><ScaleInput label="Session RPE" value={values.rpe} onChange={(value) => set("rpe", value)} /><ScaleInput label="Post-session fatigue" value={values.fatigue} onChange={(value) => set("fatigue", value)} /><div><p className="mb-3 text-sm font-semibold text-[#304a5d]">Heart-rate zone minutes <span className="font-normal text-[#82929d]">· optional</span></p><div className="grid grid-cols-2 gap-3 sm:grid-cols-5">{[1,2,3,4,5].map((zone) => <NumberField key={zone} label={`Zone ${zone}`} suffix="min" value={values[`zone${zone}Minutes` as keyof Values] as string} onChange={(value) => set(`zone${zone}Minutes` as keyof Values, value)} min={0} max={360} />)}</div></div></div>; }
 
 interface FieldProps { values: Values; set: (field: keyof Values, value: string | number) => void }

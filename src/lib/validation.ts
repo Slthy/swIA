@@ -83,6 +83,22 @@ export const logInputSchema = z
         message: "That session is not available on the selected date.",
       });
     }
+    if (value.logType === "monday_test" || value.logType === "friday_test") {
+      const entered25yTimes = [
+        value.time25ySeconds,
+        value.time25yBreaststrokeSeconds,
+        value.time25yFreestyleSeconds,
+        value.time25yFlySeconds,
+        value.time25yBackstrokeSeconds,
+      ].filter((time) => time !== null);
+      if (entered25yTimes.length > 1) {
+        context.addIssue({
+          code: "custom",
+          path: ["time25yFreestyleSeconds"],
+          message: "Enter one 25y stroke per test session.",
+        });
+      }
+    }
   });
 
 export type LogInput = z.infer<typeof logInputSchema>;

@@ -5,10 +5,14 @@ import type {
   FatiguePoint,
   LoadPoint,
   RecoveryPoint,
+  SessionEffortPoint,
   SwimTestPoint,
   WellnessPoint,
+  Weekly25yPoint,
   ZonePoint,
 } from "@/lib/types";
+import { mondayOfWeek } from "@/lib/dates";
+import { get25yResult } from "@/lib/swim-tests";
 
 function average(values: Array<number | null | undefined>): number | null {
   const valid = values.filter((value): value is number => value !== null && value !== undefined && Number.isFinite(value));
@@ -82,6 +86,8 @@ export function buildDashboardData(logs: AthleteLog[]): DashboardData {
     zones: buildZonePoints(sorted),
     swimTests: buildSwimTestPoints(sorted),
     fatigue: buildFatiguePoints(sorted),
+    effort: buildSessionEffortPoints(sorted),
+    weekly25y: buildWeekly25yPoints(sorted),
   };
 }
 
@@ -172,6 +178,46 @@ function buildFatiguePoints(logs: AthleteLog[]): FatiguePoint[] {
   }));
 }
 
+function buildSessionEffortPoints(logs: AthleteLog[]): SessionEffortPoint[] {
+  const grouped = groupBy(logs.filter((log) => log.rpe !== null || log.fatigue !== null), (log) => `${log.activityDate}:${log.sessionKey}`);
+  return [...grouped.values()].map((items) => ({
+    date: items[0].activityDate,
+    sessionKey: items[0].sessionKey,
+    rpe: average(items.map((item) => item.rpe)),
+    fatigue: average(items.map((item) => item.fatigue)),
+  }));
+}
+
+function buildWeekly25yPoints(logs: AthleteLog[]): Weekly25yPoint[] {
+  const testLogs = logs.filter((log) => log.sessionKey === "monday_am_test" || log.sessionKey === "friday_am_test");
+  const byAthleteWeek = groupBy(testLogs, (log) => `${log.athleteId}:${mondayOfWeek(log.activityDate)}`);
+  const pairs: Array<Omit<Weekly25yPoint, "pairedAthletes">> = [];
+  for (const items of byAthleteWeek.values()) {
+    const monday = items.find((item) => item.sessionKey === "monday_am_test");
+    const friday = items.find((item) => item.sessionKey === "friday_am_test");
+    if (!monday || !friday) continue;
+    const mondayResult = get25yResult(monday);
+    const fridayResult = get25yResult(friday);
+    if (!mondayResult || !fridayResult || mondayResult.stroke !== fridayResult.stroke) continue;
+    pairs.push({
+      weekStart: mondayOfWeek(monday.activityDate),
+      stroke: mondayResult.stroke,
+      mondaySeconds: mondayResult.seconds,
+      fridaySeconds: fridayResult.seconds,
+      improvementSeconds: mondayResult.seconds - fridayResult.seconds,
+    });
+  }
+  const grouped = groupBy(pairs, (pair) => `${pair.weekStart}:${pair.stroke}`);
+  return [...grouped.values()].map((items) => ({
+    weekStart: items[0].weekStart,
+    stroke: items[0].stroke,
+    mondaySeconds: roundMetric(average(items.map((item) => item.mondaySeconds)) ?? 0),
+    fridaySeconds: roundMetric(average(items.map((item) => item.fridaySeconds)) ?? 0),
+    improvementSeconds: roundMetric(average(items.map((item) => item.improvementSeconds)) ?? 0),
+    pairedAthletes: items.length,
+  })).sort((left, right) => left.weekStart.localeCompare(right.weekStart) || left.stroke.localeCompare(right.stroke));
+}
+
 function hasAnyZone(log: AthleteLog): boolean {
   return [log.zone1Minutes, log.zone2Minutes, log.zone3Minutes, log.zone4Minutes, log.zone5Minutes].some(
     (value) => value !== null,
@@ -180,6 +226,10 @@ function hasAnyZone(log: AthleteLog): boolean {
 
 function sum(values: Array<number | null>): number {
   return values.reduce<number>((total, value) => total + (value ?? 0), 0);
+}
+
+function roundMetric(value: number) {
+  return Math.round(value * 1_000) / 1_000;
 }
 
 export const analyticsInternals = { average, minimum };

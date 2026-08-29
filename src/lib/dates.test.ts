@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isSessionAllowedForDate, sessionsForDate, toLocalISODate } from "@/lib/dates";
+import { fridayOfWeek, isSessionAllowedForDate, mondayOfWeek, sessionsForDate, toLocalISODate } from "@/lib/dates";
 
 describe("date-gated session options", () => {
   it.each([
@@ -14,4 +14,9 @@ describe("date-gated session options", () => {
 
   it("never allows Monday AM on Tuesday", () => expect(isSessionAllowedForDate("monday_am_test", "2026-08-25")).toBe(false));
   it("formats with the device-local calendar date", () => expect(toLocalISODate(new Date(2026, 7, 28, 23, 55))).toBe("2026-08-28"));
+  it("resolves the same Monday and Friday for dates in one training week", () => {
+    expect(mondayOfWeek("2026-08-24")).toBe("2026-08-24");
+    expect(mondayOfWeek("2026-08-28")).toBe("2026-08-24");
+    expect(fridayOfWeek("2026-08-24")).toBe("2026-08-28");
+  });
 });

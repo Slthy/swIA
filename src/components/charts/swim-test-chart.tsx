@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useState } from "react";
-import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ChartCard, EmptyChart } from "@/components/charts/chart-card";
 import { ChartTooltip, axisColor, formatChartDate, gridColor } from "@/components/charts/chart-utils";
-import type { SwimTestPoint } from "@/lib/types";
+import { STROKE_25_OPTIONS, stroke25Label, type Stroke25OrLegacy } from "@/lib/swim-tests";
+import type { SwimTestPoint, Weekly25yPoint } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 type TimeMetricKey = keyof Pick<SwimTestPoint,
@@ -28,14 +29,6 @@ interface TimeMetric {
   legacy?: boolean;
 }
 
-const time25Metrics: TimeMetric[] = [
-  { key: "time25yBreaststrokeSeconds", label: "Breaststroke", color: "#d97729" },
-  { key: "time25yFreestyleSeconds", label: "Freestyle", color: "#2d7db6" },
-  { key: "time25yFlySeconds", label: "Fly", color: "#7559b8" },
-  { key: "time25yBackstrokeSeconds", label: "Backstroke", color: "#2f9d78" },
-  { key: "time25ySeconds", label: "Unspecified (legacy)", color: "#82929d", legacy: true },
-];
-
 const pace3x100Metrics: TimeMetric[] = [
   { key: "pace3x100BreaststrokeSeconds", label: "Breaststroke", color: "#d97729" },
   { key: "pace3x100FreestyleSeconds", label: "Freestyle", color: "#2d7db6" },
@@ -45,21 +38,55 @@ const pace3x100Metrics: TimeMetric[] = [
   { key: "pace3x100Seconds", label: "Unspecified (legacy)", color: "#82929d", legacy: true },
 ];
 
-export function SwimTestChart({ data, className }: { data: SwimTestPoint[]; className?: string }) {
-  const has25 = hasAnyMetric(data, time25Metrics);
+export function SwimTestChart({ data, weekly25y, className }: { data: SwimTestPoint[]; weekly25y: Weekly25yPoint[]; className?: string }) {
   const has100 = hasAnyMetric(data, pace3x100Metrics);
   const hasCounts = data.some((item) => item.kickCount !== null || item.strokeCount !== null);
   return (
-    <ChartCard title="Swim test progress" eyebrow="Stroke-specific times with formatted second scales" className={className}>
-      {!has25 && !has100 && !hasCounts ? <EmptyChart message="Test results will appear after a Monday or Friday swim test." /> : (
+    <ChartCard title="Swim test progress" eyebrow="Monday–Friday pairing and stroke-specific pace" className={className}>
+      {!weekly25y.length && !has100 && !hasCounts ? <EmptyChart message="Test results will appear after paired Monday and Friday swim tests." /> : (
         <div className="space-y-8">
-          {has25 && <StrokeTimeChart data={data} metrics={time25Metrics} label="25y time by stroke" />}
+          {weekly25y.length > 0 && <Weekly25yChart data={weekly25y} />}
           {has100 && <StrokeTimeChart data={data} metrics={pace3x100Metrics} label="3×100 average pace by stroke" />}
           {hasCounts && <CountChart data={data} />}
         </div>
       )}
     </ChartCard>
   );
+}
+
+const strokeColors: Record<Stroke25OrLegacy, string> = {
+  breaststroke: "#d97729",
+  freestyle: "#2d7db6",
+  fly: "#7559b8",
+  backstroke: "#2f9d78",
+  legacy: "#82929d",
+};
+
+function Weekly25yChart({ data }: { data: Weekly25yPoint[] }) {
+  const strokeOrder: Stroke25OrLegacy[] = [...STROKE_25_OPTIONS.map((stroke) => stroke.value), "legacy"];
+  const available = strokeOrder.filter((stroke) => data.some((point) => point.stroke === stroke));
+  const [visible, setVisible] = useState<Record<string, boolean>>(() => Object.fromEntries(strokeOrder.map((stroke) => [stroke, true])));
+  const enabled = available.filter((stroke) => visible[stroke]);
+  const chartData = data.filter((point) => visible[point.stroke]).map((point) => ({
+    ...point,
+    label: `${formatChartDate(point.weekStart)} · ${stroke25Label(point.stroke, true)}`,
+  }));
+  const timeDomain = buildSecondsDomain(chartData.flatMap((point) => [point.mondaySeconds, point.fridaySeconds]));
+  const maximumDelta = Math.max(0.1, ...chartData.map((point) => Math.abs(point.improvementSeconds)));
+  const deltaDomain: [number, number] = [-Math.ceil(maximumDelta * 120) / 100, Math.ceil(maximumDelta * 120) / 100];
+  return <section className="space-y-5">
+    <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-semibold text-[#607181]">25y Monday–Friday progression</p><p className="mt-1 text-[.68rem] text-[#82929d]">Positive change means Friday was faster.</p></div><div className="flex flex-wrap gap-2">{available.map((stroke) => <button key={stroke} type="button" aria-label={`25y progression: ${stroke25Label(stroke)}`} aria-pressed={visible[stroke]} onClick={() => setVisible((current) => ({ ...current, [stroke]: !current[stroke] }))} className={cn("flex min-h-8 items-center gap-2 rounded-lg border px-2.5 text-[.68rem] font-semibold transition", visible[stroke] ? "border-[#cdd9df] bg-white text-[#304a5d]" : "border-transparent bg-[#edf2f4] text-[#82929d]")}><span className={cn("size-2 rounded-full", !visible[stroke] && "opacity-30")} style={{ backgroundColor: strokeColors[stroke] }} />{stroke25Label(stroke)}</button>)}</div></div>
+    {!enabled.length ? <EmptyChart message="Select at least one 25y stroke." /> : <>
+      <div><p className="mb-2 text-[.68rem] font-semibold text-[#718491]">Paired times · seconds</p><div className="h-[260px]" aria-label="Monday and Friday 25y paired times chart"><ResponsiveContainer width="100%" height="100%"><BarChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}><CartesianGrid stroke={gridColor} vertical={false} /><XAxis dataKey="label" tick={{ fill: axisColor, fontSize: 9 }} axisLine={false} tickLine={false} minTickGap={14} /><YAxis domain={timeDomain} tickFormatter={formatSecondsTick} width={48} tickCount={5} tick={{ fill: axisColor, fontSize: 10 }} axisLine={false} tickLine={false} /><Tooltip content={<Weekly25yTooltip />} /><Bar dataKey="mondaySeconds" name="Monday" fill="#9fb3bd" radius={[4, 4, 0, 0]} maxBarSize={24} isAnimationActive={false} /><Bar dataKey="fridaySeconds" name="Friday" fill="#0a6f7e" radius={[4, 4, 0, 0]} maxBarSize={24} isAnimationActive={false} /></BarChart></ResponsiveContainer></div></div>
+      <div><p className="mb-2 text-[.68rem] font-semibold text-[#718491]">Friday improvement · seconds</p><div className="h-[220px]" aria-label="Monday to Friday 25y improvement chart"><ResponsiveContainer width="100%" height="100%"><BarChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}><CartesianGrid stroke={gridColor} vertical={false} /><XAxis dataKey="label" tick={{ fill: axisColor, fontSize: 9 }} axisLine={false} tickLine={false} minTickGap={14} /><YAxis domain={deltaDomain} tickFormatter={formatSecondsTick} width={48} tickCount={5} tick={{ fill: axisColor, fontSize: 10 }} axisLine={false} tickLine={false} /><ReferenceLine y={0} stroke="#82929d" /><Tooltip content={<Weekly25yTooltip delta />} /><Bar dataKey="improvementSeconds" name="Improvement" radius={[4, 4, 0, 0]} maxBarSize={30} isAnimationActive={false}>{chartData.map((point) => <Cell key={`${point.weekStart}:${point.stroke}`} fill={point.improvementSeconds >= 0 ? "#2f9d78" : "#c95050"} />)}</Bar></BarChart></ResponsiveContainer></div></div>
+    </>}
+  </section>;
+}
+
+function Weekly25yTooltip({ active, payload, delta = false }: { active?: boolean; payload?: Array<{ name?: string; value?: number; color?: string; payload?: Weekly25yPoint & { label: string } }>; delta?: boolean }) {
+  if (!active || !payload?.length) return null;
+  const point = payload[0].payload;
+  return <div className="min-w-48 rounded-xl border border-[#dce5e9] bg-white p-3 text-xs shadow-xl shadow-[#0a304a]/10"><p className="font-bold text-[#17384d]">{point?.label}</p><p className="mb-2 mt-1 text-[#718491]">{point?.pairedAthletes} paired athlete{point?.pairedAthletes === 1 ? "" : "s"}</p><div className="space-y-1.5">{payload.map((item) => <div key={item.name} className="flex justify-between gap-6"><span className="text-[#607181]">{delta ? "Mon − Fri" : item.name}</span><strong className="text-[#17384d]">{item.value === undefined ? "—" : `${Number(item.value.toFixed(2))}s`}</strong></div>)}</div></div>;
 }
 
 function StrokeTimeChart({ data, metrics, label }: { data: SwimTestPoint[]; metrics: TimeMetric[]; label: string }) {

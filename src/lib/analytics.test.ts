@@ -43,4 +43,22 @@ describe("dashboard aggregation", () => {
       time25yFlySeconds: null,
     });
   });
+
+  it("pairs matching Monday and Friday strokes and computes a positive improvement", () => {
+    const monday = log("1", "2026-08-24", "a", "monday_am_test", { logType: "monday_test", rpe: 8, fatigue: 6, time25yFreestyleSeconds: 11.1 });
+    const friday = log("2", "2026-08-28", "a", "friday_am_test", { logType: "friday_test", rpe: 7, fatigue: 5, time25yFreestyleSeconds: 10.8 });
+    const data = buildDashboardData([monday, friday]);
+    expect(data.weekly25y[0]).toMatchObject({
+      weekStart: "2026-08-24",
+      stroke: "freestyle",
+      mondaySeconds: 11.1,
+      fridaySeconds: 10.8,
+      improvementSeconds: 0.3,
+      pairedAthletes: 1,
+    });
+    expect(data.effort).toEqual([
+      { date: "2026-08-24", sessionKey: "monday_am_test", rpe: 8, fatigue: 6 },
+      { date: "2026-08-28", sessionKey: "friday_am_test", rpe: 7, fatigue: 5 },
+    ]);
+  });
 });

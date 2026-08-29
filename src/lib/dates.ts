@@ -1,4 +1,4 @@
-import { parseISO } from "date-fns";
+import { addDays, parseISO, subDays } from "date-fns";
 import { SESSIONS_BY_WEEKDAY } from "@/lib/constants";
 import type { DateSource, SessionKey } from "@/lib/types";
 
@@ -34,6 +34,18 @@ export function sessionsForDate(activityDate: string): SessionKey[] {
 
 export function isSessionAllowedForDate(sessionKey: SessionKey, activityDate: string): boolean {
   return sessionsForDate(activityDate).includes(sessionKey);
+}
+
+export function mondayOfWeek(activityDate: string): string {
+  if (!isValidISODate(activityDate)) return activityDate;
+  const date = parseISO(activityDate);
+  const daysSinceMonday = (date.getDay() + 6) % 7;
+  return toLocalISODate(subDays(date, daysSinceMonday));
+}
+
+export function fridayOfWeek(activityDate: string): string {
+  const monday = mondayOfWeek(activityDate);
+  return isValidISODate(monday) ? toLocalISODate(addDays(parseISO(monday), 4)) : activityDate;
 }
 
 export function getDeviceDateContext(now = new Date()): DeviceDateContext {

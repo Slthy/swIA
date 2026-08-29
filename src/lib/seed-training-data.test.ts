@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isSessionAllowedForDate } from "@/lib/dates";
+import { isSessionAllowedForDate, mondayOfWeek } from "@/lib/dates";
 import { assignTrainingGroups, generateTrainingSeedLogs, MOCK_TRAINING_ATHLETES, TRAINING_GROUPS } from "@/lib/seed-training-data";
 
 const athletes = Array.from({ length: 15 }, (_, index) => ({
@@ -39,10 +39,7 @@ describe("training data seed", () => {
     const tests = logs.filter((log) => log.log_type === "monday_test" || log.log_type === "friday_test");
     expect(tests).not.toHaveLength(0);
     expect(tests.every((log) =>
-      log.time_25y_breaststroke_seconds !== null
-      && log.time_25y_freestyle_seconds !== null
-      && log.time_25y_fly_seconds !== null
-      && log.time_25y_backstroke_seconds !== null
+      [log.time_25y_breaststroke_seconds, log.time_25y_freestyle_seconds, log.time_25y_fly_seconds, log.time_25y_backstroke_seconds].filter((value) => value !== null).length === 1
       && log.pace_3x100_breaststroke_seconds !== null
       && log.pace_3x100_freestyle_seconds !== null
       && log.pace_3x100_fly_seconds !== null
@@ -51,5 +48,24 @@ describe("training data seed", () => {
       && log.time_25y_seconds === null
       && log.pace_3x100_seconds === null
     )).toBe(true);
+    const byAthleteWeek = new Map<string, typeof tests>();
+    for (const test of tests) {
+      const key = `${test.athlete_id}:${mondayOfWeek(test.activity_date)}`;
+      byAthleteWeek.set(key, [...(byAthleteWeek.get(key) ?? []), test]);
+    }
+    for (const pair of byAthleteWeek.values().filter((items) => items.length === 2)) {
+      const strokeIndexes = pair.map((test) => [test.time_25y_breaststroke_seconds, test.time_25y_freestyle_seconds, test.time_25y_fly_seconds, test.time_25y_backstroke_seconds].findIndex((value) => value !== null));
+      expect(strokeIndexes[0]).toBe(strokeIndexes[1]);
+    }
+    const pairedDeltas = [...byAthleteWeek.values()].filter((items) => items.length === 2).map((pair) => {
+      const times = pair.map((test) => [test.time_25y_breaststroke_seconds, test.time_25y_freestyle_seconds, test.time_25y_fly_seconds, test.time_25y_backstroke_seconds].find((value) => value !== null)!);
+      const mondayIndex = pair.findIndex((test) => test.session_key === "monday_am_test");
+      return Math.round((times[mondayIndex] - times[1 - mondayIndex]) * 100) / 100;
+    });
+    expect(new Set(pairedDeltas).size).toBeGreaterThanOrEqual(5);
+    expect(pairedDeltas.some((delta) => delta > 0)).toBe(true);
+    expect(pairedDeltas.some((delta) => delta < 0)).toBe(true);
+    expect(new Set(logs.flatMap((entry) => entry.rpe === null ? [] : [entry.rpe])).size).toBeGreaterThanOrEqual(5);
+    expect(new Set(logs.flatMap((entry) => entry.fatigue === null ? [] : [entry.fatigue])).size).toBeGreaterThanOrEqual(5);
   });
 });

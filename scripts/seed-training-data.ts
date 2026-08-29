@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { loadEnvConfig } from "@next/env";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { subDays } from "date-fns";
-import { isValidISODate, toLocalISODate } from "../src/lib/dates";
+import { isValidISODate, mondayOfWeek, toLocalISODate } from "../src/lib/dates";
 import {
   generateTrainingSeedLogs,
   MOCK_TRAINING_ATHLETES,
@@ -116,6 +116,7 @@ async function main() {
 
   const verification = await verifyReplacement(supabase, mockAthletes, groups, startDate, endDateISO, matchingLegacyLogs.map((log) => log.id));
   process.stdout.write(`Replacement complete: ${verification.memberships} mock memberships, ${verification.mockLogs} mock logs, and ${verification.genderRosters} gender rosters verified.\n`);
+  process.stdout.write(`${verification.paired25yTests} Monday–Friday 25y pairs verified with ${verification.distinct25yDeltas} distinct deltas (${verification.minimum25yDelta}s to ${verification.maximum25yDelta}s).\n`);
   process.stdout.write(`${matchingLegacyLogs.length} matching real-athlete seed logs were removed; ${storedLegacyLogs.length - matchingLegacyLogs.length} non-matching rows were preserved.\n`);
   process.stdout.write(`${inserted} mock logs were newly inserted; ${mockLogs.length - inserted} existing identities were found before the test refresh.\n`);
   process.stdout.write(`${testRefresh.refreshed} deterministic mock swim-test rows were refreshed with stroke-specific times.\n`);
@@ -370,12 +371,73 @@ async function verifyReplacement(
   if (genderRosters?.length !== 15 || genderRosters.some((athlete) => expectedCategoryById.get(athlete.user_id) !== athlete.team_category)) {
     throw new Error("The 15 mock gender rosters do not match the deterministic seed plan.");
   }
+  const testVerification = await verifyMock25yPairs(supabase, athletes, startDate, endDate);
   for (let index = 0; index < removedIds.length; index += 200) {
     const { count, error } = await supabase.from("athlete_logs").select("*", { count: "exact", head: true }).in("id", removedIds.slice(index, index + 200));
     if (error) throw error;
     if (count) throw new Error(`${count} targeted real-athlete seed logs still exist.`);
   }
-  return { memberships, mockLogs, genderRosters: genderRosters.length };
+  return { memberships, mockLogs, genderRosters: genderRosters.length, ...testVerification };
+}
+
+const specific25yFields = [
+  "time_25y_breaststroke_seconds",
+  "time_25y_freestyle_seconds",
+  "time_25y_fly_seconds",
+  "time_25y_backstroke_seconds",
+] as const;
+
+async function verifyMock25yPairs(
+  supabase: SupabaseClient,
+  athletes: AssignedSeedAthlete[],
+  startDate: string,
+  endDate: string,
+) {
+  const { data, error } = await supabase
+    .from("athlete_logs")
+    .select("athlete_id, activity_date, session_key, time_25y_breaststroke_seconds, time_25y_freestyle_seconds, time_25y_fly_seconds, time_25y_backstroke_seconds")
+    .in("athlete_id", athletes.map((athlete) => athlete.id))
+    .in("session_key", ["monday_am_test", "friday_am_test"])
+    .gte("activity_date", startDate)
+    .lte("activity_date", endDate)
+    .is("deleted_at", null);
+  if (error) throw error;
+  if (data?.length !== 135) throw new Error(`Expected 135 mock swim-test rows, found ${data?.length ?? 0}.`);
+
+  const byAthleteWeek = new Map<string, Array<{ session: string; stroke: string; seconds: number }>>();
+  for (const row of data ?? []) {
+    const entered = specific25yFields.flatMap((field) => {
+      const raw = row[field];
+      return raw === null ? [] : [{ stroke: field, seconds: Number(raw) }];
+    });
+    if (entered.length !== 1 || !Number.isFinite(entered[0].seconds)) {
+      throw new Error(`Mock test ${row.athlete_id}:${row.activity_date} must contain exactly one valid 25y stroke time.`);
+    }
+    const key = `${row.athlete_id}:${mondayOfWeek(row.activity_date)}`;
+    const week = byAthleteWeek.get(key) ?? [];
+    week.push({ session: row.session_key, ...entered[0] });
+    byAthleteWeek.set(key, week);
+  }
+
+  const deltas: number[] = [];
+  for (const week of byAthleteWeek.values()) {
+    const monday = week.find((test) => test.session === "monday_am_test");
+    const friday = week.find((test) => test.session === "friday_am_test");
+    if (!monday || !friday) continue;
+    if (monday.stroke !== friday.stroke) throw new Error("A mock Monday–Friday pair uses different 25y strokes.");
+    deltas.push(Math.round((monday.seconds - friday.seconds) * 100) / 100);
+  }
+  if (deltas.length !== 60) throw new Error(`Expected 60 paired mock 25y tests, found ${deltas.length}.`);
+  const distinct = new Set(deltas);
+  if (distinct.size < 5 || !deltas.some((delta) => delta < 0) || !deltas.some((delta) => delta > 0)) {
+    throw new Error("Mock 25y deltas need at least five values with both improvements and regressions.");
+  }
+  return {
+    paired25yTests: deltas.length,
+    distinct25yDeltas: distinct.size,
+    minimum25yDelta: Math.min(...deltas),
+    maximum25yDelta: Math.max(...deltas),
+  };
 }
 
 function printPlan(input: {

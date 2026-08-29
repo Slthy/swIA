@@ -2,7 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { requireProfile, requireRole } from "@/lib/auth";
+import { fridayOfWeek, mondayOfWeek } from "@/lib/dates";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { getSpecific25yResult, stroke25Label } from "@/lib/swim-tests";
 import { logInputSchema, type LogInput } from "@/lib/validation";
 
 export type SaveLogResult =
@@ -22,6 +24,8 @@ export async function saveLog(input: unknown, confirmOverwrite = false): Promise
   if (!athleteId) return { status: "error", message: "Select an athlete." };
 
   const supabase = await createServerSupabaseClient();
+  const pairedStrokeError = await validateWeekly25yStroke(supabase, value, athleteId);
+  if (pairedStrokeError) return { status: "error", message: pairedStrokeError };
   const { data: existing } = await supabase
     .from("athlete_logs")
     .select("id")
@@ -44,6 +48,39 @@ export async function saveLog(input: unknown, confirmOverwrite = false): Promise
   if (error || !data) return { status: "error", message: error?.message ?? "The entry could not be saved." };
   revalidateLogViews();
   return { status: "saved", id: data.id };
+}
+
+async function validateWeekly25yStroke(
+  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
+  value: LogInput,
+  athleteId: string,
+) {
+  if (value.logType !== "monday_test" && value.logType !== "friday_test") return null;
+  const submitted = getSpecific25yResult(value);
+  if (!submitted) return null;
+  const isMonday = value.logType === "monday_test";
+  const counterpartDate = isMonday ? fridayOfWeek(value.activityDate) : mondayOfWeek(value.activityDate);
+  const counterpartSession = isMonday ? "friday_am_test" : "monday_am_test";
+  const { data, error } = await supabase
+    .from("athlete_logs")
+    .select("time_25y_breaststroke_seconds, time_25y_freestyle_seconds, time_25y_fly_seconds, time_25y_backstroke_seconds")
+    .eq("athlete_id", athleteId)
+    .eq("activity_date", counterpartDate)
+    .eq("session_key", counterpartSession)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (error) return "The paired Monday–Friday stroke could not be checked.";
+  if (!data) return null;
+  const counterpart = getSpecific25yResult({
+    time25yBreaststrokeSeconds: data.time_25y_breaststroke_seconds === null ? null : Number(data.time_25y_breaststroke_seconds),
+    time25yFreestyleSeconds: data.time_25y_freestyle_seconds === null ? null : Number(data.time_25y_freestyle_seconds),
+    time25yFlySeconds: data.time_25y_fly_seconds === null ? null : Number(data.time_25y_fly_seconds),
+    time25yBackstrokeSeconds: data.time_25y_backstroke_seconds === null ? null : Number(data.time_25y_backstroke_seconds),
+  });
+  if (counterpart && counterpart.stroke !== submitted.stroke) {
+    return `The Monday and Friday 25y stroke must match. This week is already set to ${stroke25Label(counterpart.stroke)}.`;
+  }
+  return null;
 }
 
 function toDatabaseLog(value: LogInput, athleteId: string, actorId: string, isStaff: boolean) {

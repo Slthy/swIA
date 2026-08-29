@@ -11,10 +11,12 @@ describe("LogForm", () => {
   it("keeps a valid deep-linked test session after the device date loads", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-08-28T16:00:00.000Z"));
-    render(<LogForm initialSession="friday_am_test" preview />);
+    render(<LogForm initialSession="friday_am_test" monday25yStrokes={{ "2026-08-24": "freestyle" }} preview />);
     await act(async () => { await vi.runAllTimersAsync(); });
     expect(screen.getByRole("combobox", { name: "Available session" })).toHaveValue("friday_am_test");
     expect(screen.getByText("25y time by stroke", { exact: false })).toBeInTheDocument();
     expect(screen.getByText("3×100 average pace by stroke", { exact: false })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: /Weekly stroke/ })).toHaveValue("freestyle");
+    expect(screen.getByRole("combobox", { name: /Weekly stroke/ })).toBeDisabled();
   });
 });

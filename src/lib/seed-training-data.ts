@@ -1,5 +1,5 @@
 import { subDays } from "date-fns";
-import { sessionsForDate, toLocalISODate } from "@/lib/dates";
+import { mondayOfWeek, sessionsForDate, toLocalISODate } from "@/lib/dates";
 import type { LogType, SessionKey } from "@/lib/types";
 
 export const TRAINING_GROUPS = [
@@ -127,16 +127,23 @@ function makeSessionRow(
   const logType: LogType = isMondayTest ? "monday_test" : isFridayTest ? "friday_test" : "practice";
   const profile = profiles[athlete.group];
   const row = emptyRow(athlete.id, actorId, activityDate, sessionKey, logType);
-  row.rpe = clamp(7 + Math.round(variation / 2) + (athlete.group === "Sprint" ? 1 : 0), 1, 10);
-  row.fatigue = clamp(5 + variation + (sessionKey.includes("pm") ? 1 : 0), 1, 10);
+  row.rpe = clamp(6 + variation + athlete.athleteIndex % 3 + (athlete.group === "Sprint" ? 1 : 0) + (sessionKey.includes("pm") ? 1 : 0), 1, 10);
+  row.fatigue = clamp(5 + variation + (athlete.athleteIndex * 2) % 3 + (sessionKey.includes("pm") ? 1 : 0), 1, 10);
 
   if (isTest) {
-    const freestyle25 = profile.time25y + variation * 0.08 + athlete.athleteIndex * 0.015;
-    row.time_25y_freestyle_seconds = round(freestyle25);
-    row.time_25y_fly_seconds = round(freestyle25 + 1.2 + athlete.athleteIndex * 0.01);
-    row.time_25y_backstroke_seconds = round(freestyle25 + 1.8 + athlete.athleteIndex * 0.012);
-    row.time_25y_breaststroke_seconds = round(freestyle25 + 3.1 + athlete.athleteIndex * 0.015);
-    const freestylePace = profile.pace3x100 + variation * 0.3 + athlete.athleteIndex * 0.04;
+    const weekSeed = Math.floor(new Date(`${mondayOfWeek(activityDate)}T12:00:00Z`).getTime() / 604_800_000);
+    const weeklyVariation = (positiveModulo(weekSeed * 3 + athlete.athleteIndex * 2, 9) - 4) * 0.09;
+    const strokeIndex = positiveModulo(weekSeed + athlete.athleteIndex, 4);
+    const strokeOffsets = [3.1, 0, 1.2, 1.8] as const;
+    const improvement = (positiveModulo(weekSeed + athlete.athleteIndex * 3, 8) - 2) * 0.055;
+    const monday25 = profile.time25y + weeklyVariation + athlete.athleteIndex * 0.015 + strokeOffsets[strokeIndex];
+    const test25 = monday25 - (isFridayTest ? improvement : 0);
+    if (strokeIndex === 0) row.time_25y_breaststroke_seconds = round(test25);
+    if (strokeIndex === 1) row.time_25y_freestyle_seconds = round(test25);
+    if (strokeIndex === 2) row.time_25y_fly_seconds = round(test25);
+    if (strokeIndex === 3) row.time_25y_backstroke_seconds = round(test25);
+    const testVariation = (positiveModulo(weekSeed * 2 + athlete.athleteIndex * 5, 11) - 5) * 0.35 + (isFridayTest ? -0.25 : 0.25);
+    const freestylePace = profile.pace3x100 + testVariation + athlete.athleteIndex * 0.04;
     row.pace_3x100_freestyle_seconds = round(freestylePace);
     row.pace_3x100_fly_seconds = round(freestylePace + 7 + athlete.athleteIndex * 0.04);
     row.pace_3x100_backstroke_seconds = round(freestylePace + 9 + athlete.athleteIndex * 0.05);
@@ -201,4 +208,8 @@ function clamp(value: number, min: number, max: number) {
 
 function round(value: number) {
   return Math.round(value * 100) / 100;
+}
+
+function positiveModulo(value: number, divisor: number) {
+  return ((value % divisor) + divisor) % divisor;
 }

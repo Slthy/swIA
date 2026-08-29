@@ -133,6 +133,22 @@ export interface FatiguePoint {
   fatigue: number;
 }
 
+export interface SessionEffortPoint {
+  date: string;
+  sessionKey: SessionKey;
+  rpe: number | null;
+  fatigue: number | null;
+}
+
+export interface Weekly25yPoint {
+  weekStart: string;
+  stroke: Exclude<SwimStroke, "im"> | "legacy";
+  mondaySeconds: number;
+  fridaySeconds: number;
+  improvementSeconds: number;
+  pairedAthletes: number;
+}
+
 export interface DashboardData {
   summary: DashboardSummary;
   wellness: WellnessPoint[];
@@ -141,4 +157,6 @@ export interface DashboardData {
   zones: ZonePoint[];
   swimTests: SwimTestPoint[];
   fatigue: FatiguePoint[];
+  effort: SessionEffortPoint[];
+  weekly25y: Weekly25yPoint[];
 }
