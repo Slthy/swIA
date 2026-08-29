@@ -14,11 +14,18 @@ import { cn } from "@/lib/utils";
 interface Values {
   soreness: number | null; academicStress: number | null; nutrition: number | null;
   restingHr: string; sleepHours: string; rpe: number | null; fatigue: number | null;
-  pace3x100Seconds: string; time25ySeconds: string; kickCount: string; strokeCount: string;
+  time25yBreaststrokeSeconds: string; time25yFreestyleSeconds: string; time25yFlySeconds: string; time25yBackstrokeSeconds: string;
+  pace3x100BreaststrokeSeconds: string; pace3x100FreestyleSeconds: string; pace3x100FlySeconds: string; pace3x100BackstrokeSeconds: string; pace3x100ImSeconds: string;
+  kickCount: string; strokeCount: string;
   zone1Minutes: string; zone2Minutes: string; zone3Minutes: string; zone4Minutes: string; zone5Minutes: string;
 }
 
-const initialValues: Values = { soreness: null, academicStress: null, nutrition: null, restingHr: "", sleepHours: "", rpe: null, fatigue: null, pace3x100Seconds: "", time25ySeconds: "", kickCount: "", strokeCount: "", zone1Minutes: "", zone2Minutes: "", zone3Minutes: "", zone4Minutes: "", zone5Minutes: "" };
+const initialValues: Values = {
+  soreness: null, academicStress: null, nutrition: null, restingHr: "", sleepHours: "", rpe: null, fatigue: null,
+  time25yBreaststrokeSeconds: "", time25yFreestyleSeconds: "", time25yFlySeconds: "", time25yBackstrokeSeconds: "",
+  pace3x100BreaststrokeSeconds: "", pace3x100FreestyleSeconds: "", pace3x100FlySeconds: "", pace3x100BackstrokeSeconds: "", pace3x100ImSeconds: "",
+  kickCount: "", strokeCount: "", zone1Minutes: "", zone2Minutes: "", zone3Minutes: "", zone4Minutes: "", zone5Minutes: "",
+};
 
 export function LogForm({ initialSession, athleteId, preview = false }: { initialSession?: SessionKey; athleteId?: string; preview?: boolean }) {
   const [context, setContext] = useState<DeviceDateContext | null>(null);
@@ -36,8 +43,8 @@ export function LogForm({ initialSession, athleteId, preview = false }: { initia
   }, [initialSession]);
 
   useEffect(() => {
-    if (!allowedSessions.includes(sessionKey)) setSessionKey(allowedSessions[0] ?? "daily_wellness");
-  }, [allowedSessions, sessionKey]);
+    if (context && !allowedSessions.includes(sessionKey)) setSessionKey(allowedSessions[0] ?? "daily_wellness");
+  }, [allowedSessions, context, sessionKey]);
 
   const logType = logTypeForSession(sessionKey);
   const set = (field: keyof Values, value: string | number) => setValues((current) => ({ ...current, [field]: value }));
@@ -79,7 +86,34 @@ export function LogForm({ initialSession, athleteId, preview = false }: { initia
 }
 
 function WellnessFields({ values, set }: FieldProps) { return <div className="space-y-7"><ScaleInput label="Morning soreness" value={values.soreness} onChange={(value) => set("soreness", value)} lowLabel="1 · Fresh" highLabel="10 · Sore" /><ScaleInput label="Academic & life stress" value={values.academicStress} onChange={(value) => set("academicStress", value)} /><ScaleInput label="Nutrition & hydration" value={values.nutrition} onChange={(value) => set("nutrition", value)} /><div className="grid gap-4 sm:grid-cols-2"><NumberField label="Resting heart rate" suffix="bpm" value={values.restingHr} onChange={(value) => set("restingHr", value)} min={20} max={250} /><NumberField label="Sleep duration" suffix="hours" value={values.sleepHours} onChange={(value) => set("sleepHours", value)} min={0} max={24} step="0.25" /></div></div>; }
-function TestFields({ values, set }: FieldProps) { return <div className="space-y-7"><ScaleInput label="Session RPE" value={values.rpe} onChange={(value) => set("rpe", value)} /><ScaleInput label="Post-session fatigue" value={values.fatigue} onChange={(value) => set("fatigue", value)} /><div className="grid gap-4 sm:grid-cols-2"><NumberField label="25y max effort" suffix="sec" value={values.time25ySeconds} onChange={(value) => set("time25ySeconds", value)} step="0.01" /><NumberField label="3×100 average pace" suffix="sec" value={values.pace3x100Seconds} onChange={(value) => set("pace3x100Seconds", value)} step="0.01" /><NumberField label="Kick count" value={values.kickCount} onChange={(value) => set("kickCount", value)} /><NumberField label="Stroke count" value={values.strokeCount} onChange={(value) => set("strokeCount", value)} /></div></div>; }
+function TestFields({ values, set }: FieldProps) {
+  return <div className="space-y-7">
+    <ScaleInput label="Session RPE" value={values.rpe} onChange={(value) => set("rpe", value)} />
+    <ScaleInput label="Post-session fatigue" value={values.fatigue} onChange={(value) => set("fatigue", value)} />
+    <div>
+      <p className="text-sm font-bold text-[#304a5d]">25y time by stroke <span className="font-normal text-[#82929d]">· seconds</span></p>
+      <p className="mt-1 text-xs text-[#82929d]">Enter only the strokes tested in this session.</p>
+      <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <NumberField label="Breaststroke" suffix="sec" value={values.time25yBreaststrokeSeconds} onChange={(value) => set("time25yBreaststrokeSeconds", value)} step="0.01" />
+        <NumberField label="Freestyle" suffix="sec" value={values.time25yFreestyleSeconds} onChange={(value) => set("time25yFreestyleSeconds", value)} step="0.01" />
+        <NumberField label="Fly" suffix="sec" value={values.time25yFlySeconds} onChange={(value) => set("time25yFlySeconds", value)} step="0.01" />
+        <NumberField label="Backstroke" suffix="sec" value={values.time25yBackstrokeSeconds} onChange={(value) => set("time25yBackstrokeSeconds", value)} step="0.01" />
+      </div>
+    </div>
+    <div>
+      <p className="text-sm font-bold text-[#304a5d]">3×100 average pace by stroke <span className="font-normal text-[#82929d]">· seconds</span></p>
+      <p className="mt-1 text-xs text-[#82929d]">Use the average time per 100 for each tested stroke.</p>
+      <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <NumberField label="Breaststroke" suffix="sec" value={values.pace3x100BreaststrokeSeconds} onChange={(value) => set("pace3x100BreaststrokeSeconds", value)} step="0.01" />
+        <NumberField label="Freestyle" suffix="sec" value={values.pace3x100FreestyleSeconds} onChange={(value) => set("pace3x100FreestyleSeconds", value)} step="0.01" />
+        <NumberField label="Fly" suffix="sec" value={values.pace3x100FlySeconds} onChange={(value) => set("pace3x100FlySeconds", value)} step="0.01" />
+        <NumberField label="Backstroke" suffix="sec" value={values.pace3x100BackstrokeSeconds} onChange={(value) => set("pace3x100BackstrokeSeconds", value)} step="0.01" />
+        <NumberField label="IM" suffix="sec" value={values.pace3x100ImSeconds} onChange={(value) => set("pace3x100ImSeconds", value)} step="0.01" />
+      </div>
+    </div>
+    <div className="grid gap-4 sm:grid-cols-2"><NumberField label="Kick count" value={values.kickCount} onChange={(value) => set("kickCount", value)} /><NumberField label="Stroke count" value={values.strokeCount} onChange={(value) => set("strokeCount", value)} /></div>
+  </div>;
+}
 function PracticeFields({ values, set }: FieldProps) { return <div className="space-y-7"><ScaleInput label="Session RPE" value={values.rpe} onChange={(value) => set("rpe", value)} /><ScaleInput label="Post-session fatigue" value={values.fatigue} onChange={(value) => set("fatigue", value)} /><div><p className="mb-3 text-sm font-semibold text-[#304a5d]">Heart-rate zone minutes <span className="font-normal text-[#82929d]">· optional</span></p><div className="grid grid-cols-2 gap-3 sm:grid-cols-5">{[1,2,3,4,5].map((zone) => <NumberField key={zone} label={`Zone ${zone}`} suffix="min" value={values[`zone${zone}Minutes` as keyof Values] as string} onChange={(value) => set(`zone${zone}Minutes` as keyof Values, value)} min={0} max={360} />)}</div></div></div>; }
 
 interface FieldProps { values: Values; set: (field: keyof Values, value: string | number) => void }
@@ -90,6 +124,23 @@ function optional(value: string) { return value === "" ? null : Number(value); }
 function buildPayload(logType: LogType, sessionKey: SessionKey, context: DeviceDateContext, values: Values, athleteId?: string) {
   const base = { logType, sessionKey, activityDate: context.activityDate, athleteId, dateSource: context.dateSource as DateSource, deviceRecordedAt: context.deviceRecordedAt, deviceTimezone: context.deviceTimezone, deviceUtcOffsetMinutes: context.deviceUtcOffsetMinutes };
   if (logType === "wellness") return { ...base, soreness: values.soreness, academicStress: values.academicStress, nutrition: values.nutrition, restingHr: optional(values.restingHr), sleepHours: optional(values.sleepHours) };
-  if (logType === "monday_test" || logType === "friday_test") return { ...base, rpe: values.rpe, fatigue: values.fatigue, pace3x100Seconds: optional(values.pace3x100Seconds), time25ySeconds: optional(values.time25ySeconds), kickCount: optional(values.kickCount), strokeCount: optional(values.strokeCount) };
+  if (logType === "monday_test" || logType === "friday_test") return {
+    ...base,
+    rpe: values.rpe,
+    fatigue: values.fatigue,
+    pace3x100Seconds: null,
+    time25ySeconds: null,
+    time25yBreaststrokeSeconds: optional(values.time25yBreaststrokeSeconds),
+    time25yFreestyleSeconds: optional(values.time25yFreestyleSeconds),
+    time25yFlySeconds: optional(values.time25yFlySeconds),
+    time25yBackstrokeSeconds: optional(values.time25yBackstrokeSeconds),
+    pace3x100BreaststrokeSeconds: optional(values.pace3x100BreaststrokeSeconds),
+    pace3x100FreestyleSeconds: optional(values.pace3x100FreestyleSeconds),
+    pace3x100FlySeconds: optional(values.pace3x100FlySeconds),
+    pace3x100BackstrokeSeconds: optional(values.pace3x100BackstrokeSeconds),
+    pace3x100ImSeconds: optional(values.pace3x100ImSeconds),
+    kickCount: optional(values.kickCount),
+    strokeCount: optional(values.strokeCount),
+  };
   return { ...base, rpe: values.rpe, fatigue: values.fatigue, zone1Minutes: optional(values.zone1Minutes), zone2Minutes: optional(values.zone2Minutes), zone3Minutes: optional(values.zone3Minutes), zone4Minutes: optional(values.zone4Minutes), zone5Minutes: optional(values.zone5Minutes) };
 }

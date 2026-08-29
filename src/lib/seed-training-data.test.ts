@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { isSessionAllowedForDate } from "@/lib/dates";
-import { assignTrainingGroups, generateTrainingSeedLogs, TRAINING_GROUPS } from "@/lib/seed-training-data";
+import { assignTrainingGroups, generateTrainingSeedLogs, MOCK_TRAINING_ATHLETES, TRAINING_GROUPS } from "@/lib/seed-training-data";
 
 const athletes = Array.from({ length: 15 }, (_, index) => ({
   id: `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
@@ -15,6 +15,18 @@ describe("training data seed", () => {
     }
   });
 
+  it("defines 15 unique, clearly labeled mock accounts", () => {
+    expect(MOCK_TRAINING_ATHLETES).toHaveLength(15);
+    expect(new Set(MOCK_TRAINING_ATHLETES.map((athlete) => athlete.username)).size).toBe(15);
+    expect(MOCK_TRAINING_ATHLETES.every((athlete) => athlete.username.startsWith("mock.") && athlete.displayName.includes("Mock"))).toBe(true);
+    for (const group of TRAINING_GROUPS) {
+      expect(MOCK_TRAINING_ATHLETES.filter((athlete) => athlete.group === group.name)).toHaveLength(5);
+      expect(MOCK_TRAINING_ATHLETES.filter((athlete) => athlete.group === group.name && athlete.teamCategory === "women")).toHaveLength(3);
+      expect(MOCK_TRAINING_ATHLETES.filter((athlete) => athlete.group === group.name && athlete.teamCategory === "men")).toHaveLength(2);
+    }
+    expect(new Set(MOCK_TRAINING_ATHLETES.map((athlete) => athlete.teamCategory))).toEqual(new Set(["women", "men"]));
+  });
+
   it("generates 30 valid days without duplicate athlete sessions", () => {
     const assigned = assignTrainingGroups(athletes);
     const logs = generateTrainingSeedLogs(assigned, "00000000-0000-4000-8000-999999999999", new Date(2026, 7, 28, 12));
@@ -24,5 +36,20 @@ describe("training data seed", () => {
     expect(identities.size).toBe(logs.length);
     expect(logs.every((log) => isSessionAllowedForDate(log.session_key, log.activity_date))).toBe(true);
     expect(logs.filter((log) => log.session_key.includes("lift")).every((log) => log.zone1_minutes === null)).toBe(true);
+    const tests = logs.filter((log) => log.log_type === "monday_test" || log.log_type === "friday_test");
+    expect(tests).not.toHaveLength(0);
+    expect(tests.every((log) =>
+      log.time_25y_breaststroke_seconds !== null
+      && log.time_25y_freestyle_seconds !== null
+      && log.time_25y_fly_seconds !== null
+      && log.time_25y_backstroke_seconds !== null
+      && log.pace_3x100_breaststroke_seconds !== null
+      && log.pace_3x100_freestyle_seconds !== null
+      && log.pace_3x100_fly_seconds !== null
+      && log.pace_3x100_backstroke_seconds !== null
+      && log.pace_3x100_im_seconds !== null
+      && log.time_25y_seconds === null
+      && log.pace_3x100_seconds === null
+    )).toBe(true);
   });
 });

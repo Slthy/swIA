@@ -54,13 +54,13 @@ After the roster and first staff account exist, preview the deterministic seed p
 npm run seed:training -- --dry-run
 ```
 
-Then create Sprint, Mid-D, and Distance groups, assign five active athletes to each, and insert the latest 30 days of date-valid logs:
+Then create Sprint, Mid-D, and Distance groups, create five clearly labeled mock athlete accounts per group, and insert the latest 30 days of date-valid logs:
 
 ```bash
 npm run seed:training
 ```
 
-Use `--end=YYYY-MM-DD` to choose a fixed final date. Re-running the command resets only these three group memberships and preserves logs that already exist for an athlete/date/session.
+Use `--end=YYYY-MM-DD` to choose a fixed final date. Newly created mock accounts are written to a mode-`0600`, git-ignored credential CSV. Re-running the command resets only these three group memberships and preserves logs that already exist for a mock athlete/date/session.
 
 ## Verification
 

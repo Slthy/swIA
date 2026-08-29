@@ -10,6 +10,15 @@ export const TRAINING_GROUPS = [
 
 export type TrainingGroupName = (typeof TRAINING_GROUPS)[number]["name"];
 
+export const MOCK_TRAINING_ATHLETES = TRAINING_GROUPS.flatMap((group) =>
+  Array.from({ length: 5 }, (_, index) => ({
+    displayName: `${group.name} Mock ${String(index + 1).padStart(2, "0")}`,
+    username: `mock.${group.name.toLowerCase().replaceAll("-", "")}.${String(index + 1).padStart(2, "0")}`,
+    group: group.name,
+    teamCategory: index % 2 === 0 ? "women" as const : "men" as const,
+  })),
+);
+
 export interface SeedAthlete {
   id: string;
   displayName: string;
@@ -35,6 +44,15 @@ export interface TrainingSeedLogRow {
   fatigue: number | null;
   pace_3x100_seconds: number | null;
   time_25y_seconds: number | null;
+  time_25y_breaststroke_seconds: number | null;
+  time_25y_freestyle_seconds: number | null;
+  time_25y_fly_seconds: number | null;
+  time_25y_backstroke_seconds: number | null;
+  pace_3x100_breaststroke_seconds: number | null;
+  pace_3x100_freestyle_seconds: number | null;
+  pace_3x100_fly_seconds: number | null;
+  pace_3x100_backstroke_seconds: number | null;
+  pace_3x100_im_seconds: number | null;
   kick_count: number | null;
   stroke_count: number | null;
   zone1_minutes: number | null;
@@ -113,8 +131,17 @@ function makeSessionRow(
   row.fatigue = clamp(5 + variation + (sessionKey.includes("pm") ? 1 : 0), 1, 10);
 
   if (isTest) {
-    row.time_25y_seconds = round(profile.time25y + variation * 0.08 + athlete.athleteIndex * 0.015);
-    row.pace_3x100_seconds = round(profile.pace3x100 + variation * 0.3 + athlete.athleteIndex * 0.04);
+    const freestyle25 = profile.time25y + variation * 0.08 + athlete.athleteIndex * 0.015;
+    row.time_25y_freestyle_seconds = round(freestyle25);
+    row.time_25y_fly_seconds = round(freestyle25 + 1.2 + athlete.athleteIndex * 0.01);
+    row.time_25y_backstroke_seconds = round(freestyle25 + 1.8 + athlete.athleteIndex * 0.012);
+    row.time_25y_breaststroke_seconds = round(freestyle25 + 3.1 + athlete.athleteIndex * 0.015);
+    const freestylePace = profile.pace3x100 + variation * 0.3 + athlete.athleteIndex * 0.04;
+    row.pace_3x100_freestyle_seconds = round(freestylePace);
+    row.pace_3x100_fly_seconds = round(freestylePace + 7 + athlete.athleteIndex * 0.04);
+    row.pace_3x100_backstroke_seconds = round(freestylePace + 9 + athlete.athleteIndex * 0.05);
+    row.pace_3x100_breaststroke_seconds = round(freestylePace + 14 + athlete.athleteIndex * 0.06);
+    row.pace_3x100_im_seconds = round(freestylePace + 6 + athlete.athleteIndex * 0.035);
     row.kick_count = 20 + athlete.athleteIndex % 6 + variation;
     row.stroke_count = 32 + athlete.athleteIndex % 7 + variation;
   } else if (!sessionKey.includes("lift")) {
@@ -147,6 +174,15 @@ function emptyRow(
     fatigue: null,
     pace_3x100_seconds: null,
     time_25y_seconds: null,
+    time_25y_breaststroke_seconds: null,
+    time_25y_freestyle_seconds: null,
+    time_25y_fly_seconds: null,
+    time_25y_backstroke_seconds: null,
+    pace_3x100_breaststroke_seconds: null,
+    pace_3x100_freestyle_seconds: null,
+    pace_3x100_fly_seconds: null,
+    pace_3x100_backstroke_seconds: null,
+    pace_3x100_im_seconds: null,
     kick_count: null,
     stroke_count: null,
     zone1_minutes: null,

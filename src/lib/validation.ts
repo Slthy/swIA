@@ -26,16 +26,29 @@ const wellnessSchema = z.object({
   sleepHours: optionalNumber(z.number().min(0).max(24)),
 });
 
+const swimTestMeasurements = {
+  pace3x100Seconds: optionalNumber(z.number().positive().max(600)),
+  time25ySeconds: optionalNumber(z.number().positive().max(300)),
+  time25yBreaststrokeSeconds: optionalNumber(z.number().positive().max(300)),
+  time25yFreestyleSeconds: optionalNumber(z.number().positive().max(300)),
+  time25yFlySeconds: optionalNumber(z.number().positive().max(300)),
+  time25yBackstrokeSeconds: optionalNumber(z.number().positive().max(300)),
+  pace3x100BreaststrokeSeconds: optionalNumber(z.number().positive().max(600)),
+  pace3x100FreestyleSeconds: optionalNumber(z.number().positive().max(600)),
+  pace3x100FlySeconds: optionalNumber(z.number().positive().max(600)),
+  pace3x100BackstrokeSeconds: optionalNumber(z.number().positive().max(600)),
+  pace3x100ImSeconds: optionalNumber(z.number().positive().max(600)),
+  kickCount: optionalNumber(z.number().int().min(0).max(10000)),
+  strokeCount: optionalNumber(z.number().int().min(0).max(10000)),
+};
+
 const mondayTestSchema = z.object({
   ...base,
   logType: z.literal("monday_test"),
   sessionKey: z.literal("monday_am_test"),
   rpe: scale,
   fatigue: scale,
-  pace3x100Seconds: optionalNumber(z.number().positive().max(600)),
-  time25ySeconds: optionalNumber(z.number().positive().max(300)),
-  kickCount: optionalNumber(z.number().int().min(0).max(10000)),
-  strokeCount: optionalNumber(z.number().int().min(0).max(10000)),
+  ...swimTestMeasurements,
 });
 
 const fridayTestSchema = z.object({
@@ -44,10 +57,7 @@ const fridayTestSchema = z.object({
   sessionKey: z.literal("friday_am_test"),
   rpe: scale,
   fatigue: scale,
-  pace3x100Seconds: optionalNumber(z.number().positive().max(600)),
-  time25ySeconds: optionalNumber(z.number().positive().max(300)),
-  kickCount: optionalNumber(z.number().int().min(0).max(10000)),
-  strokeCount: optionalNumber(z.number().int().min(0).max(10000)),
+  ...swimTestMeasurements,
 });
 
 const practiceSchema = z.object({

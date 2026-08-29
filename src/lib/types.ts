@@ -18,6 +18,7 @@ export type SessionKey =
   | "saturday_am_swim";
 
 export type DateSource = "device" | "server_fallback" | "manual" | "staff_backfill";
+export type SwimStroke = "breaststroke" | "freestyle" | "fly" | "backstroke" | "im";
 
 export interface Profile {
   id: string;
@@ -48,6 +49,15 @@ export interface AthleteLog {
   fatigue: number | null;
   pace3x100Seconds: number | null;
   time25ySeconds: number | null;
+  time25yBreaststrokeSeconds: number | null;
+  time25yFreestyleSeconds: number | null;
+  time25yFlySeconds: number | null;
+  time25yBackstrokeSeconds: number | null;
+  pace3x100BreaststrokeSeconds: number | null;
+  pace3x100FreestyleSeconds: number | null;
+  pace3x100FlySeconds: number | null;
+  pace3x100BackstrokeSeconds: number | null;
+  pace3x100ImSeconds: number | null;
   kickCount: number | null;
   strokeCount: number | null;
   zone1Minutes: number | null;
@@ -104,6 +114,15 @@ export interface SwimTestPoint {
   session: "Monday AM" | "Friday AM";
   time25ySeconds: number | null;
   pace3x100Seconds: number | null;
+  time25yBreaststrokeSeconds: number | null;
+  time25yFreestyleSeconds: number | null;
+  time25yFlySeconds: number | null;
+  time25yBackstrokeSeconds: number | null;
+  pace3x100BreaststrokeSeconds: number | null;
+  pace3x100FreestyleSeconds: number | null;
+  pace3x100FlySeconds: number | null;
+  pace3x100BackstrokeSeconds: number | null;
+  pace3x100ImSeconds: number | null;
   kickCount: number | null;
   strokeCount: number | null;
 }

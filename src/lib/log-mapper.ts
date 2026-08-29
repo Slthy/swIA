@@ -19,6 +19,15 @@ export interface AthleteLogRow {
   fatigue: number | null;
   pace_3x100_seconds: number | null;
   time_25y_seconds: number | null;
+  time_25y_breaststroke_seconds: number | null;
+  time_25y_freestyle_seconds: number | null;
+  time_25y_fly_seconds: number | null;
+  time_25y_backstroke_seconds: number | null;
+  pace_3x100_breaststroke_seconds: number | null;
+  pace_3x100_freestyle_seconds: number | null;
+  pace_3x100_fly_seconds: number | null;
+  pace_3x100_backstroke_seconds: number | null;
+  pace_3x100_im_seconds: number | null;
   kick_count: number | null;
   stroke_count: number | null;
   zone1_minutes: number | null;
@@ -53,6 +62,15 @@ export function mapAthleteLog(row: AthleteLogRow): AthleteLog {
     fatigue: numberOrNull(row.fatigue),
     pace3x100Seconds: numberOrNull(row.pace_3x100_seconds),
     time25ySeconds: numberOrNull(row.time_25y_seconds),
+    time25yBreaststrokeSeconds: numberOrNull(row.time_25y_breaststroke_seconds),
+    time25yFreestyleSeconds: numberOrNull(row.time_25y_freestyle_seconds),
+    time25yFlySeconds: numberOrNull(row.time_25y_fly_seconds),
+    time25yBackstrokeSeconds: numberOrNull(row.time_25y_backstroke_seconds),
+    pace3x100BreaststrokeSeconds: numberOrNull(row.pace_3x100_breaststroke_seconds),
+    pace3x100FreestyleSeconds: numberOrNull(row.pace_3x100_freestyle_seconds),
+    pace3x100FlySeconds: numberOrNull(row.pace_3x100_fly_seconds),
+    pace3x100BackstrokeSeconds: numberOrNull(row.pace_3x100_backstroke_seconds),
+    pace3x100ImSeconds: numberOrNull(row.pace_3x100_im_seconds),
     kickCount: numberOrNull(row.kick_count),
     strokeCount: numberOrNull(row.stroke_count),
     zone1Minutes: numberOrNull(row.zone1_minutes),
@@ -65,6 +83,6 @@ export function mapAthleteLog(row: AthleteLogRow): AthleteLog {
   };
 }
 
-function numberOrNull(value: number | string | null): number | null {
-  return value === null ? null : Number(value);
+function numberOrNull(value: number | string | null | undefined): number | null {
+  return value === null || value === undefined ? null : Number(value);
 }

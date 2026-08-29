@@ -18,7 +18,7 @@ export function Dashboard({ data, compact = false }: { data: DashboardData; comp
     ["Avg sleep", formatNumber(data.summary.avgSleepHours), "hours", BedDouble, "#7559b8"],
     ["Resting HR", formatNumber(data.summary.avgRestingHr), "bpm", HeartPulse, "#4a8ecf"],
     ["Daily load", formatNumber(data.summary.avgDailyLoad), "RPE avg", Timer, "#d6a72d"],
-    ["Best 25y", formatNumber(data.summary.best25ySeconds, 2), "seconds", Trophy, "#8d7448"],
+    ["Test sessions", String(data.swimTests.length), "plotted by stroke", Trophy, "#8d7448"],
   ] as const;
   return (
     <div className="space-y-5">

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BarChart3, ClipboardPlus, History, Home, LogOut, Settings, Users } from "lucide-react";
+import { BarChart3, ClipboardPlus, History, Home, LogOut, Settings, UserRound, Users } from "lucide-react";
 import { signOutAction } from "@/app/login/actions";
 import { Logo } from "@/components/logo";
 import { PwaRegistration } from "@/components/pwa-registration";
@@ -10,6 +10,7 @@ const athleteLinks = [
   { href: "/athlete/log", label: "Log", icon: ClipboardPlus },
   { href: "/athlete/trends", label: "Trends", icon: BarChart3 },
   { href: "/athlete/history", label: "History", icon: History },
+  { href: "/athlete/profile", label: "Profile", icon: UserRound },
 ];
 
 const staffLinks = [
@@ -38,8 +39,8 @@ export function AppShell({ profile, preview, children }: { profile: Profile; pre
       <div className="min-w-0 lg:col-start-2">
         <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-[#dce5e9]/80 bg-[#f4f7f8]/90 px-5 backdrop-blur-lg lg:hidden"><Logo /> <span className="max-w-32 truncate text-xs font-semibold text-[#607181]">{profile.displayName}</span></header>
         <main className="mx-auto w-full max-w-[1500px] px-4 pb-28 pt-6 sm:px-6 lg:px-8 lg:pb-10 lg:pt-8">{preview && <div className="mb-5 rounded-xl border border-[#dccba8] bg-[#fffaf0] px-4 py-3 text-sm text-[#705a32]"><strong>Preview mode:</strong> showing generated data. Configure Supabase to enable authentication and persistence.</div>}{children}</main>
-        <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-[#dce5e9] bg-white/95 pb-[max(.45rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur lg:hidden" aria-label="Mobile navigation">
-          {links.slice(0, 4).map(({ href, label, icon: Icon }) => <Link key={href} href={href} className="flex min-h-13 flex-col items-center justify-center gap-1 text-[.68rem] font-semibold text-[#607181]"><Icon className="size-5" />{label}</Link>)}
+        <nav className="fixed inset-x-0 bottom-0 z-30 grid border-t border-[#dce5e9] bg-white/95 pb-[max(.45rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur lg:hidden" style={{ gridTemplateColumns: `repeat(${links.length}, minmax(0, 1fr))` }} aria-label="Mobile navigation">
+          {links.map(({ href, label, icon: Icon }) => <Link key={href} href={href} className="flex min-h-13 flex-col items-center justify-center gap-1 text-[.68rem] font-semibold text-[#607181]"><Icon className="size-5" />{label}</Link>)}
         </nav>
       </div>
     </div>

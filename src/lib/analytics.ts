@@ -57,8 +57,21 @@ export function buildDashboardData(logs: AthleteLog[]): DashboardData {
     avgSleepHours: average(wellnessLogs.map((log) => log.sleepHours)),
     avgRestingHr: average(wellnessLogs.map((log) => log.restingHr)),
     avgDailyLoad: average(dailyLoadValues.map((item) => item.value)),
-    best25ySeconds: minimum(sorted.map((log) => log.time25ySeconds)),
-    best3x100Seconds: minimum(sorted.map((log) => log.pace3x100Seconds)),
+    best25ySeconds: minimum(sorted.flatMap((log) => [
+      log.time25ySeconds,
+      log.time25yBreaststrokeSeconds,
+      log.time25yFreestyleSeconds,
+      log.time25yFlySeconds,
+      log.time25yBackstrokeSeconds,
+    ])),
+    best3x100Seconds: minimum(sorted.flatMap((log) => [
+      log.pace3x100Seconds,
+      log.pace3x100BreaststrokeSeconds,
+      log.pace3x100FreestyleSeconds,
+      log.pace3x100FlySeconds,
+      log.pace3x100BackstrokeSeconds,
+      log.pace3x100ImSeconds,
+    ])),
   };
 
   return {
@@ -136,6 +149,15 @@ function buildSwimTestPoints(logs: AthleteLog[]): SwimTestPoint[] {
     session: items[0].logType === "monday_test" ? "Monday AM" : "Friday AM",
     time25ySeconds: average(items.map((item) => item.time25ySeconds)),
     pace3x100Seconds: average(items.map((item) => item.pace3x100Seconds)),
+    time25yBreaststrokeSeconds: average(items.map((item) => item.time25yBreaststrokeSeconds)),
+    time25yFreestyleSeconds: average(items.map((item) => item.time25yFreestyleSeconds)),
+    time25yFlySeconds: average(items.map((item) => item.time25yFlySeconds)),
+    time25yBackstrokeSeconds: average(items.map((item) => item.time25yBackstrokeSeconds)),
+    pace3x100BreaststrokeSeconds: average(items.map((item) => item.pace3x100BreaststrokeSeconds)),
+    pace3x100FreestyleSeconds: average(items.map((item) => item.pace3x100FreestyleSeconds)),
+    pace3x100FlySeconds: average(items.map((item) => item.pace3x100FlySeconds)),
+    pace3x100BackstrokeSeconds: average(items.map((item) => item.pace3x100BackstrokeSeconds)),
+    pace3x100ImSeconds: average(items.map((item) => item.pace3x100ImSeconds)),
     kickCount: average(items.map((item) => item.kickCount)),
     strokeCount: average(items.map((item) => item.strokeCount)),
   }));
