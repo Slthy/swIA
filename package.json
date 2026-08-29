@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "provision": "tsx scripts/provision-users.ts"
+    "provision": "tsx scripts/provision-users.ts",
+    "seed:training": "tsx scripts/seed-training-data.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.5",
