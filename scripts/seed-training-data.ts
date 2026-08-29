@@ -425,12 +425,12 @@ async function verifyMock25yPairs(
     const friday = week.find((test) => test.session === "friday_am_test");
     if (!monday || !friday) continue;
     if (monday.stroke !== friday.stroke) throw new Error("A mock Monday–Friday pair uses different 25y strokes.");
-    deltas.push(Math.round((monday.seconds - friday.seconds) * 100) / 100);
+    deltas.push(Math.round((friday.seconds - monday.seconds) * 100) / 100);
   }
   if (deltas.length !== 60) throw new Error(`Expected 60 paired mock 25y tests, found ${deltas.length}.`);
   const distinct = new Set(deltas);
-  if (distinct.size < 5 || !deltas.some((delta) => delta < 0) || !deltas.some((delta) => delta > 0)) {
-    throw new Error("Mock 25y deltas need at least five values with both improvements and regressions.");
+  if (distinct.size < 5 || deltas.includes(0) || !deltas.some((delta) => delta < 0) || !deltas.some((delta) => delta > 0)) {
+    throw new Error("Mock 25y deltas need at least five non-zero values with both improvements and regressions.");
   }
   return {
     paired25yTests: deltas.length,

@@ -135,9 +135,10 @@ function makeSessionRow(
     const weeklyVariation = (positiveModulo(weekSeed * 3 + athlete.athleteIndex * 2, 9) - 4) * 0.09;
     const strokeIndex = positiveModulo(weekSeed + athlete.athleteIndex, 4);
     const strokeOffsets = [3.1, 0, 1.2, 1.8] as const;
-    const improvement = (positiveModulo(weekSeed + athlete.athleteIndex * 3, 8) - 2) * 0.055;
+    const weeklyDeltas = [-0.32, -0.24, -0.18, -0.11, -0.06, 0.07, 0.14, 0.23] as const;
+    const delta = weeklyDeltas[positiveModulo(weekSeed + athlete.athleteIndex * 3, weeklyDeltas.length)];
     const monday25 = profile.time25y + weeklyVariation + athlete.athleteIndex * 0.015 + strokeOffsets[strokeIndex];
-    const test25 = monday25 - (isFridayTest ? improvement : 0);
+    const test25 = monday25 + (isFridayTest ? delta : 0);
     if (strokeIndex === 0) row.time_25y_breaststroke_seconds = round(test25);
     if (strokeIndex === 1) row.time_25y_freestyle_seconds = round(test25);
     if (strokeIndex === 2) row.time_25y_fly_seconds = round(test25);

@@ -143,10 +143,11 @@ export interface SessionEffortPoint {
 export interface Weekly25yPoint {
   weekStart: string;
   stroke: Exclude<SwimStroke, "im"> | "legacy";
+  athleteId: string;
+  athleteName: string;
   mondaySeconds: number;
   fridaySeconds: number;
-  improvementSeconds: number;
-  pairedAthletes: number;
+  deltaSeconds: number;
 }
 
 export interface DashboardData {

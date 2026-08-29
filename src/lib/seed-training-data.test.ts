@@ -60,11 +60,12 @@ describe("training data seed", () => {
     const pairedDeltas = [...byAthleteWeek.values()].filter((items) => items.length === 2).map((pair) => {
       const times = pair.map((test) => [test.time_25y_breaststroke_seconds, test.time_25y_freestyle_seconds, test.time_25y_fly_seconds, test.time_25y_backstroke_seconds].find((value) => value !== null)!);
       const mondayIndex = pair.findIndex((test) => test.session_key === "monday_am_test");
-      return Math.round((times[mondayIndex] - times[1 - mondayIndex]) * 100) / 100;
+      return Math.round((times[1 - mondayIndex] - times[mondayIndex]) * 100) / 100;
     });
     expect(new Set(pairedDeltas).size).toBeGreaterThanOrEqual(5);
     expect(pairedDeltas.some((delta) => delta > 0)).toBe(true);
     expect(pairedDeltas.some((delta) => delta < 0)).toBe(true);
+    expect(pairedDeltas).not.toContain(0);
     expect(new Set(logs.flatMap((entry) => entry.rpe === null ? [] : [entry.rpe])).size).toBeGreaterThanOrEqual(5);
     expect(new Set(logs.flatMap((entry) => entry.fatigue === null ? [] : [entry.fatigue])).size).toBeGreaterThanOrEqual(5);
   });

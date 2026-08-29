@@ -10,10 +10,12 @@ describe("demo dashboard data", () => {
     expect(new Set(data.weekly25y.map((point) => point.stroke))).toEqual(
       new Set(["breaststroke", "freestyle", "fly", "backstroke"]),
     );
+    expect(data.weekly25y.some((point) => point.deltaSeconds < 0)).toBe(true);
+    expect(data.weekly25y.some((point) => point.deltaSeconds > 0)).toBe(true);
     expect(data.weekly25y.find((point) => point.stroke === "breaststroke")).toMatchObject({
       mondaySeconds: 14.16,
       fridaySeconds: 13.98,
-      improvementSeconds: 0.18,
+      deltaSeconds: -0.18,
     });
   });
 });

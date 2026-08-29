@@ -77,8 +77,9 @@ function demo25yResult(activityDate: string, isFriday: boolean): Partial<Athlete
   const fields = ["time25yBreaststrokeSeconds", "time25yFreestyleSeconds", "time25yFlySeconds", "time25yBackstrokeSeconds"] as const;
   const bases = [14.6, 11.5, 12.7, 13.2] as const;
   const variation = ((((weekSeed * 3) % 9) + 9) % 9 - 4) * 0.11;
-  const improvement = (((weekSeed % 7) + 7) % 7 - 2) * 0.06;
-  return { [fields[strokeIndex]]: bases[strokeIndex] + variation - (isFriday ? improvement : 0) };
+  const weeklyDeltas = [-0.18, 0.09, -0.12, 0.16, -0.08, 0.13, -0.24, 0.2] as const;
+  const delta = weeklyDeltas[((weekSeed % weeklyDeltas.length) + weeklyDeltas.length) % weeklyDeltas.length];
+  return { [fields[strokeIndex]]: bases[strokeIndex] + variation + (isFriday ? delta : 0) };
 }
 
 function makeLog(activityDate: string, sessionKey: SessionKey, values: Partial<AthleteLog>): AthleteLog {

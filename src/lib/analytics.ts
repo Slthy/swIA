@@ -191,7 +191,7 @@ function buildSessionEffortPoints(logs: AthleteLog[]): SessionEffortPoint[] {
 function buildWeekly25yPoints(logs: AthleteLog[]): Weekly25yPoint[] {
   const testLogs = logs.filter((log) => log.sessionKey === "monday_am_test" || log.sessionKey === "friday_am_test");
   const byAthleteWeek = groupBy(testLogs, (log) => `${log.athleteId}:${mondayOfWeek(log.activityDate)}`);
-  const pairs: Array<Omit<Weekly25yPoint, "pairedAthletes">> = [];
+  const pairs: Weekly25yPoint[] = [];
   for (const items of byAthleteWeek.values()) {
     const monday = items.find((item) => item.sessionKey === "monday_am_test");
     const friday = items.find((item) => item.sessionKey === "friday_am_test");
@@ -202,20 +202,16 @@ function buildWeekly25yPoints(logs: AthleteLog[]): Weekly25yPoint[] {
     pairs.push({
       weekStart: mondayOfWeek(monday.activityDate),
       stroke: mondayResult.stroke,
+      athleteId: monday.athleteId,
+      athleteName: monday.athleteName,
       mondaySeconds: mondayResult.seconds,
       fridaySeconds: fridayResult.seconds,
-      improvementSeconds: mondayResult.seconds - fridayResult.seconds,
+      deltaSeconds: roundMetric(fridayResult.seconds - mondayResult.seconds),
     });
   }
-  const grouped = groupBy(pairs, (pair) => `${pair.weekStart}:${pair.stroke}`);
-  return [...grouped.values()].map((items) => ({
-    weekStart: items[0].weekStart,
-    stroke: items[0].stroke,
-    mondaySeconds: roundMetric(average(items.map((item) => item.mondaySeconds)) ?? 0),
-    fridaySeconds: roundMetric(average(items.map((item) => item.fridaySeconds)) ?? 0),
-    improvementSeconds: roundMetric(average(items.map((item) => item.improvementSeconds)) ?? 0),
-    pairedAthletes: items.length,
-  })).sort((left, right) => left.weekStart.localeCompare(right.weekStart) || left.stroke.localeCompare(right.stroke));
+  return pairs.sort((left, right) => left.weekStart.localeCompare(right.weekStart)
+    || left.stroke.localeCompare(right.stroke)
+    || left.athleteName.localeCompare(right.athleteName));
 }
 
 function hasAnyZone(log: AthleteLog): boolean {

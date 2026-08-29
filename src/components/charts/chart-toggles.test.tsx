@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { HrZoneChart } from "@/components/charts/hr-zone-chart";
 import { SessionEffortChart } from "@/components/charts/session-effort-chart";
+import { SwimTestChart } from "@/components/charts/swim-test-chart";
 import { WellnessChart } from "@/components/charts/wellness-chart";
 
 describe("chart visibility controls", () => {
@@ -26,5 +27,23 @@ describe("chart visibility controls", () => {
     expect(fatigue).toHaveAttribute("aria-pressed", "true");
     fireEvent.click(fatigue);
     expect(fatigue).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("switches 25y progression between best improvement and fastest time", () => {
+    render(<SwimTestChart data={[]} weekly25y={[{
+      weekStart: "2026-08-24",
+      stroke: "breaststroke",
+      athleteId: "athlete-a",
+      athleteName: "Athlete A",
+      mondaySeconds: 14.2,
+      fridaySeconds: 14,
+      deltaSeconds: -0.2,
+    }]} />);
+    const best = screen.getByRole("button", { name: "Best improvement" });
+    const fastest = screen.getByRole("button", { name: "Fastest time" });
+    expect(best).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(fastest);
+    expect(best).toHaveAttribute("aria-pressed", "false");
+    expect(fastest).toHaveAttribute("aria-pressed", "true");
   });
 });
