@@ -7,7 +7,7 @@ import { ScaleInput } from "@/components/scale-input";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { SESSION_LABELS } from "@/lib/constants";
-import { getDeviceDateContext, mondayOfWeek, sessionsForDate, type DeviceDateContext } from "@/lib/dates";
+import { getDeviceDateContext, sessionsForDate, type DeviceDateContext } from "@/lib/dates";
 import { STROKE_25_OPTIONS, type Stroke25 } from "@/lib/swim-tests";
 import type { DateSource, LogType, SessionKey } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -16,7 +16,7 @@ interface Values {
   soreness: number | null; academicStress: number | null; nutrition: number | null;
   restingHr: string; sleepHours: string; rpe: number | null; fatigue: number | null;
   time25yBreaststrokeSeconds: string; time25yFreestyleSeconds: string; time25yFlySeconds: string; time25yBackstrokeSeconds: string;
-  pace3x100BreaststrokeSeconds: string; pace3x100FreestyleSeconds: string; pace3x100FlySeconds: string; pace3x100BackstrokeSeconds: string; pace3x100ImSeconds: string;
+  pace3x100FreestyleSeconds: string;
   kickCount: string; strokeCount: string;
   zone1Minutes: string; zone2Minutes: string; zone3Minutes: string; zone4Minutes: string; zone5Minutes: string;
 }
@@ -24,11 +24,11 @@ interface Values {
 const initialValues: Values = {
   soreness: null, academicStress: null, nutrition: null, restingHr: "", sleepHours: "", rpe: null, fatigue: null,
   time25yBreaststrokeSeconds: "", time25yFreestyleSeconds: "", time25yFlySeconds: "", time25yBackstrokeSeconds: "",
-  pace3x100BreaststrokeSeconds: "", pace3x100FreestyleSeconds: "", pace3x100FlySeconds: "", pace3x100BackstrokeSeconds: "", pace3x100ImSeconds: "",
+  pace3x100FreestyleSeconds: "",
   kickCount: "", strokeCount: "", zone1Minutes: "", zone2Minutes: "", zone3Minutes: "", zone4Minutes: "", zone5Minutes: "",
 };
 
-export function LogForm({ initialSession, athleteId, monday25yStrokes = {}, preview = false }: { initialSession?: SessionKey; athleteId?: string; monday25yStrokes?: Record<string, Stroke25>; preview?: boolean }) {
+export function LogForm({ initialSession, athleteId, preview = false }: { initialSession?: SessionKey; athleteId?: string; preview?: boolean }) {
   const [context, setContext] = useState<DeviceDateContext | null>(null);
   const [manualDate, setManualDate] = useState(false);
   const [sessionKey, setSessionKey] = useState<SessionKey>("daily_wellness");
@@ -37,8 +37,6 @@ export function LogForm({ initialSession, athleteId, monday25yStrokes = {}, prev
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
   const allowedSessions = useMemo(() => context ? sessionsForDate(context.activityDate) : [], [context]);
-  const weekMonday = context ? mondayOfWeek(context.activityDate) : null;
-  const established25Stroke = weekMonday ? monday25yStrokes[weekMonday] : undefined;
 
   useEffect(() => {
     const device = getDeviceDateContext();
@@ -52,7 +50,7 @@ export function LogForm({ initialSession, athleteId, monday25yStrokes = {}, prev
 
   useEffect(() => {
     if (sessionKey !== "monday_am_test" && sessionKey !== "friday_am_test") return;
-    setSelected25Stroke(established25Stroke ?? null);
+    setSelected25Stroke(null);
     setValues((current) => ({
       ...current,
       time25yBreaststrokeSeconds: "",
@@ -60,7 +58,7 @@ export function LogForm({ initialSession, athleteId, monday25yStrokes = {}, prev
       time25yFlySeconds: "",
       time25yBackstrokeSeconds: "",
     }));
-  }, [established25Stroke, sessionKey, weekMonday]);
+  }, [context?.activityDate, sessionKey]);
 
   const logType = logTypeForSession(sessionKey);
   const set = (field: keyof Values, value: string | number) => setValues((current) => ({ ...current, [field]: value }));
@@ -94,7 +92,7 @@ export function LogForm({ initialSession, athleteId, monday25yStrokes = {}, prev
         {(logType === "monday_test" || logType === "friday_test") && <TestFields values={values} set={set} selected25Stroke={selected25Stroke} onSelect25Stroke={(stroke) => {
           setSelected25Stroke(stroke);
           setValues((current) => ({ ...current, time25yBreaststrokeSeconds: "", time25yFreestyleSeconds: "", time25yFlySeconds: "", time25yBackstrokeSeconds: "" }));
-        }} strokeLocked={logType === "friday_test" && Boolean(established25Stroke)} />}
+        }} />}
         {logType === "practice" && <PracticeFields values={values} set={set} />}
         {message && <div role="status" className={cn("flex items-start gap-3 rounded-xl px-4 py-3 text-sm", message.type === "success" ? "bg-emerald-50 text-emerald-750" : "bg-red-50 text-red-700")}>{message.type === "success" ? <CheckCircle2 className="mt-0.5 size-4 shrink-0" /> : <Info className="mt-0.5 size-4 shrink-0" />}<span>{message.text}</span></div>}
         <Button type="button" disabled={pending} onClick={submit} className="w-full sm:w-auto">{pending ? "Saving…" : "Save entry"}</Button>
@@ -105,29 +103,23 @@ export function LogForm({ initialSession, athleteId, monday25yStrokes = {}, prev
 }
 
 function WellnessFields({ values, set }: FieldProps) { return <div className="space-y-7"><ScaleInput label="Morning soreness" value={values.soreness} onChange={(value) => set("soreness", value)} lowLabel="1 · Fresh" highLabel="10 · Sore" /><ScaleInput label="Academic & life stress" value={values.academicStress} onChange={(value) => set("academicStress", value)} /><ScaleInput label="Nutrition & hydration" value={values.nutrition} onChange={(value) => set("nutrition", value)} /><div className="grid gap-4 sm:grid-cols-2"><NumberField label="Resting heart rate" suffix="bpm" value={values.restingHr} onChange={(value) => set("restingHr", value)} min={20} max={250} /><NumberField label="Sleep duration" suffix="hours" value={values.sleepHours} onChange={(value) => set("sleepHours", value)} min={0} max={24} step="0.25" /></div></div>; }
-function TestFields({ values, set, selected25Stroke, onSelect25Stroke, strokeLocked }: FieldProps & { selected25Stroke: Stroke25 | null; onSelect25Stroke: (stroke: Stroke25 | null) => void; strokeLocked: boolean }) {
+function TestFields({ values, set, selected25Stroke, onSelect25Stroke }: FieldProps & { selected25Stroke: Stroke25 | null; onSelect25Stroke: (stroke: Stroke25 | null) => void }) {
   const selectedField = selected25Stroke ? stroke25Fields[selected25Stroke] : null;
   return <div className="space-y-7">
     <ScaleInput label="Session RPE" value={values.rpe} onChange={(value) => set("rpe", value)} />
     <ScaleInput label="Post-session fatigue" value={values.fatigue} onChange={(value) => set("fatigue", value)} />
     <div>
       <p className="text-sm font-bold text-[#304a5d]">25y time by stroke <span className="font-normal text-[#82929d]">· seconds</span></p>
-      <p className="mt-1 text-xs text-[#82929d]">Monday establishes the stroke; Friday repeats that stroke for a valid weekly delta.</p>
+      <p className="mt-1 text-xs text-[#82929d]">Assign the stroke used today so the result can be filtered later.</p>
       <div className="mt-3 grid gap-4 sm:grid-cols-2">
-        <label><span className="mb-2 block text-xs font-semibold text-[#526778]">Weekly stroke</span><select value={selected25Stroke ?? ""} disabled={strokeLocked} onChange={(event) => onSelect25Stroke(event.target.value ? event.target.value as Stroke25 : null)} className="min-h-12 w-full rounded-xl border border-[#d5e0e5] bg-white px-3 text-sm font-semibold text-[#304a5d] outline-none disabled:bg-[#f0f4f5]"><option value="">Choose a stroke</option>{STROKE_25_OPTIONS.map((stroke) => <option key={stroke.value} value={stroke.value}>{stroke.label}</option>)}</select>{strokeLocked && <span className="mt-1.5 block text-xs text-[#2f7d62]">Locked to Monday’s stroke.</span>}</label>
-        {selectedField ? <NumberField label={`${STROKE_25_OPTIONS.find((stroke) => stroke.value === selected25Stroke)?.label} time`} suffix="sec" value={values[selectedField]} onChange={(value) => set(selectedField, value)} step="0.01" /> : <div className="grid min-h-20 place-items-center rounded-xl border border-dashed border-[#d5e0e5] bg-[#f9fbfb] px-4 text-center text-xs text-[#82929d]">Choose the weekly stroke to enter a 25y time.</div>}
+        <label><span className="mb-2 block text-xs font-semibold text-[#526778]">25y stroke</span><select value={selected25Stroke ?? ""} onChange={(event) => onSelect25Stroke(event.target.value ? event.target.value as Stroke25 : null)} className="min-h-12 w-full rounded-xl border border-[#d5e0e5] bg-white px-3 text-sm font-semibold text-[#304a5d] outline-none"><option value="">Choose a stroke</option>{STROKE_25_OPTIONS.map((stroke) => <option key={stroke.value} value={stroke.value}>{stroke.label}</option>)}</select></label>
+        {selectedField ? <NumberField label={`${STROKE_25_OPTIONS.find((stroke) => stroke.value === selected25Stroke)?.label} time`} suffix="sec" value={values[selectedField]} onChange={(value) => set(selectedField, value)} step="0.01" /> : <div className="grid min-h-20 place-items-center rounded-xl border border-dashed border-[#d5e0e5] bg-[#f9fbfb] px-4 text-center text-xs text-[#82929d]">Choose today’s stroke to enter a 25y time.</div>}
       </div>
     </div>
     <div>
-      <p className="text-sm font-bold text-[#304a5d]">3×100 average pace by stroke <span className="font-normal text-[#82929d]">· seconds</span></p>
-      <p className="mt-1 text-xs text-[#82929d]">Use the average time per 100 for each tested stroke.</p>
-      <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <NumberField label="Breaststroke" suffix="sec" value={values.pace3x100BreaststrokeSeconds} onChange={(value) => set("pace3x100BreaststrokeSeconds", value)} step="0.01" />
-        <NumberField label="Freestyle" suffix="sec" value={values.pace3x100FreestyleSeconds} onChange={(value) => set("pace3x100FreestyleSeconds", value)} step="0.01" />
-        <NumberField label="Fly" suffix="sec" value={values.pace3x100FlySeconds} onChange={(value) => set("pace3x100FlySeconds", value)} step="0.01" />
-        <NumberField label="Backstroke" suffix="sec" value={values.pace3x100BackstrokeSeconds} onChange={(value) => set("pace3x100BackstrokeSeconds", value)} step="0.01" />
-        <NumberField label="IM" suffix="sec" value={values.pace3x100ImSeconds} onChange={(value) => set("pace3x100ImSeconds", value)} step="0.01" />
-      </div>
+      <p className="text-sm font-bold text-[#304a5d]">3×100 freestyle average pace <span className="font-normal text-[#82929d]">· seconds</span></p>
+      <p className="mt-1 text-xs text-[#82929d]">Enter the average time per 100 for the freestyle set.</p>
+      <div className="mt-3 max-w-sm"><NumberField label="Freestyle" suffix="sec" value={values.pace3x100FreestyleSeconds} onChange={(value) => set("pace3x100FreestyleSeconds", value)} step="0.01" /></div>
     </div>
     <div className="grid gap-4 sm:grid-cols-2"><NumberField label="Kick count" value={values.kickCount} onChange={(value) => set("kickCount", value)} /><NumberField label="Stroke count" value={values.strokeCount} onChange={(value) => set("strokeCount", value)} /></div>
   </div>;
@@ -159,11 +151,11 @@ function buildPayload(logType: LogType, sessionKey: SessionKey, context: DeviceD
     time25yFreestyleSeconds: optional(values.time25yFreestyleSeconds),
     time25yFlySeconds: optional(values.time25yFlySeconds),
     time25yBackstrokeSeconds: optional(values.time25yBackstrokeSeconds),
-    pace3x100BreaststrokeSeconds: optional(values.pace3x100BreaststrokeSeconds),
+    pace3x100BreaststrokeSeconds: null,
     pace3x100FreestyleSeconds: optional(values.pace3x100FreestyleSeconds),
-    pace3x100FlySeconds: optional(values.pace3x100FlySeconds),
-    pace3x100BackstrokeSeconds: optional(values.pace3x100BackstrokeSeconds),
-    pace3x100ImSeconds: optional(values.pace3x100ImSeconds),
+    pace3x100FlySeconds: null,
+    pace3x100BackstrokeSeconds: null,
+    pace3x100ImSeconds: null,
     kickCount: optional(values.kickCount),
     strokeCount: optional(values.strokeCount),
   };

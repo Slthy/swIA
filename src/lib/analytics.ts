@@ -1,18 +1,17 @@
 import type {
   AthleteLog,
+  Daily25yPoint,
+  Daily3x100Point,
   DashboardData,
   DashboardSummary,
   FatiguePoint,
   LoadPoint,
   RecoveryPoint,
   SessionEffortPoint,
-  SwimTestPoint,
+  TestDay,
   WellnessPoint,
-  Weekly3x100Point,
-  Weekly25yPoint,
   ZonePoint,
 } from "@/lib/types";
-import { mondayOfWeek } from "@/lib/dates";
 import { get25yResult } from "@/lib/swim-tests";
 
 function average(values: Array<number | null | undefined>): number | null {
@@ -71,11 +70,7 @@ export function buildDashboardData(logs: AthleteLog[]): DashboardData {
     ])),
     best3x100Seconds: minimum(sorted.flatMap((log) => [
       log.pace3x100Seconds,
-      log.pace3x100BreaststrokeSeconds,
       log.pace3x100FreestyleSeconds,
-      log.pace3x100FlySeconds,
-      log.pace3x100BackstrokeSeconds,
-      log.pace3x100ImSeconds,
     ])),
   };
 
@@ -85,11 +80,10 @@ export function buildDashboardData(logs: AthleteLog[]): DashboardData {
     recovery: buildRecoveryPoints(wellnessLogs),
     load: buildLoadPoints(sessionLogs, dailyLoadValues),
     zones: buildZonePoints(sorted),
-    swimTests: buildSwimTestPoints(sorted),
+    daily25y: buildDaily25yPoints(sorted),
+    daily3x100: buildDaily3x100Points(sorted),
     fatigue: buildFatiguePoints(sorted),
     effort: buildSessionEffortPoints(sorted),
-    weekly25y: buildWeekly25yPoints(sorted),
-    weekly3x100: buildWeekly3x100Points(sorted),
   };
 }
 
@@ -149,26 +143,37 @@ function buildZonePoints(logs: AthleteLog[]): ZonePoint[] {
   }));
 }
 
-function buildSwimTestPoints(logs: AthleteLog[]): SwimTestPoint[] {
+function buildDaily25yPoints(logs: AthleteLog[]): Daily25yPoint[] {
   const testLogs = logs.filter((log) => log.logType === "monday_test" || log.logType === "friday_test");
-  const grouped = groupBy(testLogs, (log) => `${log.activityDate}:${log.logType}`);
+  const entries = testLogs.flatMap((log) => {
+    const result = get25yResult(log);
+    return result ? [{ log, result }] : [];
+  });
+  const grouped = groupBy(entries, ({ log, result }) => `${log.activityDate}:${log.logType}:${result.stroke}`);
   return [...grouped.values()].map((items) => ({
-    date: items[0].activityDate,
-    session: items[0].logType === "monday_test" ? "Monday AM" : "Friday AM",
-    time25ySeconds: average(items.map((item) => item.time25ySeconds)),
-    pace3x100Seconds: average(items.map((item) => item.pace3x100Seconds)),
-    time25yBreaststrokeSeconds: average(items.map((item) => item.time25yBreaststrokeSeconds)),
-    time25yFreestyleSeconds: average(items.map((item) => item.time25yFreestyleSeconds)),
-    time25yFlySeconds: average(items.map((item) => item.time25yFlySeconds)),
-    time25yBackstrokeSeconds: average(items.map((item) => item.time25yBackstrokeSeconds)),
-    pace3x100BreaststrokeSeconds: average(items.map((item) => item.pace3x100BreaststrokeSeconds)),
-    pace3x100FreestyleSeconds: average(items.map((item) => item.pace3x100FreestyleSeconds)),
-    pace3x100FlySeconds: average(items.map((item) => item.pace3x100FlySeconds)),
-    pace3x100BackstrokeSeconds: average(items.map((item) => item.pace3x100BackstrokeSeconds)),
-    pace3x100ImSeconds: average(items.map((item) => item.pace3x100ImSeconds)),
-    kickCount: average(items.map((item) => item.kickCount)),
-    strokeCount: average(items.map((item) => item.strokeCount)),
-  }));
+    date: items[0].log.activityDate,
+    day: (items[0].log.logType === "monday_test" ? "Monday" : "Friday") as TestDay,
+    stroke: items[0].result.stroke,
+    timeSeconds: average(items.map((item) => item.result.seconds)) ?? 0,
+    kickCount: average(items.map((item) => item.log.kickCount)),
+    strokeCount: average(items.map((item) => item.log.strokeCount)),
+    athleteCount: new Set(items.map((item) => item.log.athleteId)).size,
+  })).sort((left, right) => left.date.localeCompare(right.date) || left.stroke.localeCompare(right.stroke));
+}
+
+function buildDaily3x100Points(logs: AthleteLog[]): Daily3x100Point[] {
+  const entries = logs.flatMap((log) => {
+    if (log.logType !== "monday_test" && log.logType !== "friday_test") return [];
+    const paceSeconds = log.pace3x100FreestyleSeconds ?? log.pace3x100Seconds;
+    return paceSeconds === null ? [] : [{ log, paceSeconds }];
+  });
+  const grouped = groupBy(entries, ({ log }) => `${log.activityDate}:${log.logType}`);
+  return [...grouped.values()].map((items) => ({
+    date: items[0].log.activityDate,
+    day: (items[0].log.logType === "monday_test" ? "Monday" : "Friday") as TestDay,
+    paceSeconds: average(items.map((item) => item.paceSeconds)) ?? 0,
+    athleteCount: new Set(items.map((item) => item.log.athleteId)).size,
+  })).sort((left, right) => left.date.localeCompare(right.date));
 }
 
 function buildFatiguePoints(logs: AthleteLog[]): FatiguePoint[] {
@@ -190,69 +195,6 @@ function buildSessionEffortPoints(logs: AthleteLog[]): SessionEffortPoint[] {
   }));
 }
 
-function buildWeekly25yPoints(logs: AthleteLog[]): Weekly25yPoint[] {
-  const testLogs = logs.filter((log) => log.sessionKey === "monday_am_test" || log.sessionKey === "friday_am_test");
-  const byAthleteWeek = groupBy(testLogs, (log) => `${log.athleteId}:${mondayOfWeek(log.activityDate)}`);
-  const pairs: Weekly25yPoint[] = [];
-  for (const items of byAthleteWeek.values()) {
-    const monday = items.find((item) => item.sessionKey === "monday_am_test");
-    const friday = items.find((item) => item.sessionKey === "friday_am_test");
-    if (!monday || !friday) continue;
-    const mondayResult = get25yResult(monday);
-    const fridayResult = get25yResult(friday);
-    if (!mondayResult || !fridayResult || mondayResult.stroke !== fridayResult.stroke) continue;
-    pairs.push({
-      weekStart: mondayOfWeek(monday.activityDate),
-      stroke: mondayResult.stroke,
-      athleteId: monday.athleteId,
-      athleteName: monday.athleteName,
-      mondaySeconds: mondayResult.seconds,
-      fridaySeconds: fridayResult.seconds,
-      deltaSeconds: roundMetric(fridayResult.seconds - mondayResult.seconds),
-    });
-  }
-  return pairs.sort((left, right) => left.weekStart.localeCompare(right.weekStart)
-    || left.stroke.localeCompare(right.stroke)
-    || left.athleteName.localeCompare(right.athleteName));
-}
-
-const pace3x100Fields = [
-  { stroke: "breaststroke", key: "pace3x100BreaststrokeSeconds" },
-  { stroke: "freestyle", key: "pace3x100FreestyleSeconds" },
-  { stroke: "fly", key: "pace3x100FlySeconds" },
-  { stroke: "backstroke", key: "pace3x100BackstrokeSeconds" },
-  { stroke: "im", key: "pace3x100ImSeconds" },
-  { stroke: "legacy", key: "pace3x100Seconds" },
-] as const satisfies ReadonlyArray<{ stroke: Weekly3x100Point["stroke"]; key: keyof AthleteLog }>;
-
-function buildWeekly3x100Points(logs: AthleteLog[]): Weekly3x100Point[] {
-  const testLogs = logs.filter((log) => log.sessionKey === "monday_am_test" || log.sessionKey === "friday_am_test");
-  const byAthleteWeek = groupBy(testLogs, (log) => `${log.athleteId}:${mondayOfWeek(log.activityDate)}`);
-  const pairs: Weekly3x100Point[] = [];
-  for (const items of byAthleteWeek.values()) {
-    const monday = items.find((item) => item.sessionKey === "monday_am_test");
-    const friday = items.find((item) => item.sessionKey === "friday_am_test");
-    if (!monday || !friday) continue;
-    for (const field of pace3x100Fields) {
-      const mondaySeconds = monday[field.key];
-      const fridaySeconds = friday[field.key];
-      if (typeof mondaySeconds !== "number" || typeof fridaySeconds !== "number") continue;
-      pairs.push({
-        weekStart: mondayOfWeek(monday.activityDate),
-        stroke: field.stroke,
-        athleteId: monday.athleteId,
-        athleteName: monday.athleteName,
-        mondaySeconds,
-        fridaySeconds,
-        deltaSeconds: roundMetric(fridaySeconds - mondaySeconds),
-      });
-    }
-  }
-  return pairs.sort((left, right) => left.weekStart.localeCompare(right.weekStart)
-    || left.stroke.localeCompare(right.stroke)
-    || left.athleteName.localeCompare(right.athleteName));
-}
-
 function hasAnyZone(log: AthleteLog): boolean {
   return [log.zone1Minutes, log.zone2Minutes, log.zone3Minutes, log.zone4Minutes, log.zone5Minutes].some(
     (value) => value !== null,
@@ -261,10 +203,6 @@ function hasAnyZone(log: AthleteLog): boolean {
 
 function sum(values: Array<number | null>): number {
   return values.reduce<number>((total, value) => total + (value ?? 0), 0);
-}
-
-function roundMetric(value: number) {
-  return Math.round(value * 1_000) / 1_000;
 }
 
 export const analyticsInternals = { average, minimum };

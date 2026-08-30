@@ -29,40 +29,22 @@ describe("chart visibility controls", () => {
     expect(fatigue).toHaveAttribute("aria-pressed", "false");
   });
 
-  it("switches 25y progression between best improvement and fastest time", () => {
-    render(<SwimTestChart data={[]} weekly3x100={[]} weekly25y={[{
-      weekStart: "2026-08-24",
-      stroke: "breaststroke",
-      athleteId: "athlete-a",
-      athleteName: "Athlete A",
-      mondaySeconds: 14.2,
-      fridaySeconds: 14,
-      deltaSeconds: -0.2,
-    }]} />);
-    const best = screen.getByRole("button", { name: "Best improvement" });
-    const fastest = screen.getByRole("button", { name: "Fastest time" });
-    expect(best).toHaveAttribute("aria-pressed", "true");
-    fireEvent.click(fastest);
-    expect(best).toHaveAttribute("aria-pressed", "false");
-    expect(fastest).toHaveAttribute("aria-pressed", "true");
-  });
-
-  it("keeps team average and adds paired progression modes for 3x100", () => {
-    render(<SwimTestChart data={[]} weekly25y={[]} weekly3x100={[{
-      weekStart: "2026-08-24",
-      stroke: "freestyle",
-      athleteId: "athlete-a",
-      athleteName: "Athlete A",
-      mondaySeconds: 65,
-      fridaySeconds: 64,
-      deltaSeconds: -1,
-    }]} />);
-    const average = screen.getByRole("button", { name: "Team average" });
-    const improvement = screen.getByRole("button", { name: "Best improvement" });
-    expect(average).toHaveAttribute("aria-pressed", "true");
-    fireEvent.click(improvement);
-    expect(average).toHaveAttribute("aria-pressed", "false");
-    expect(improvement).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByLabelText("Monday to Friday 3x100 delta chart")).toBeInTheDocument();
+  it("filters daily test data by day and assigned 25y stroke", () => {
+    render(<SwimTestChart daily25y={[
+      { date: "2026-08-24", day: "Monday", stroke: "freestyle", timeSeconds: 11, kickCount: 20, strokeCount: 32, athleteCount: 1 },
+      { date: "2026-08-28", day: "Friday", stroke: "breaststroke", timeSeconds: 14, kickCount: 24, strokeCount: 38, athleteCount: 1 },
+    ]} daily3x100={[
+      { date: "2026-08-24", day: "Monday", paceSeconds: 64, athleteCount: 1 },
+      { date: "2026-08-28", day: "Friday", paceSeconds: 63, athleteCount: 1 },
+    ]} />);
+    const friday = screen.getByRole("button", { name: "Friday" });
+    const breaststroke = screen.getByRole("button", { name: "25y stroke filter: Breaststroke" });
+    expect(friday).toHaveAttribute("aria-pressed", "true");
+    expect(breaststroke).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(friday);
+    expect(friday).toHaveAttribute("aria-pressed", "false");
+    expect(screen.queryByRole("button", { name: "25y stroke filter: Breaststroke" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("25y time stroke and kick count chart")).toBeInTheDocument();
+    expect(screen.getByLabelText("3x100 freestyle pace chart")).toBeInTheDocument();
   });
 });

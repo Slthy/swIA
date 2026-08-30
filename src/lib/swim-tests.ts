@@ -46,13 +46,3 @@ export function stroke25Label(stroke: Stroke25OrLegacy, short = false) {
   const option = STROKE_25_OPTIONS.find((item) => item.value === stroke);
   return short ? option?.shortLabel ?? stroke : option?.label ?? stroke;
 }
-
-export function buildMonday25yStrokeSchedule(logs: AthleteLog[]): Record<string, Stroke25> {
-  const schedule: Record<string, Stroke25> = {};
-  for (const log of logs) {
-    if (log.sessionKey !== "monday_am_test") continue;
-    const result = getSpecific25yResult(log);
-    if (result) schedule[log.activityDate] = result.stroke;
-  }
-  return schedule;
-}

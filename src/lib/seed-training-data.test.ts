@@ -40,11 +40,11 @@ describe("training data seed", () => {
     expect(tests).not.toHaveLength(0);
     expect(tests.every((log) =>
       [log.time_25y_breaststroke_seconds, log.time_25y_freestyle_seconds, log.time_25y_fly_seconds, log.time_25y_backstroke_seconds].filter((value) => value !== null).length === 1
-      && log.pace_3x100_breaststroke_seconds !== null
+      && log.pace_3x100_breaststroke_seconds === null
       && log.pace_3x100_freestyle_seconds !== null
-      && log.pace_3x100_fly_seconds !== null
-      && log.pace_3x100_backstroke_seconds !== null
-      && log.pace_3x100_im_seconds !== null
+      && log.pace_3x100_fly_seconds === null
+      && log.pace_3x100_backstroke_seconds === null
+      && log.pace_3x100_im_seconds === null
       && log.time_25y_seconds === null
       && log.pace_3x100_seconds === null
     )).toBe(true);
@@ -55,32 +55,9 @@ describe("training data seed", () => {
     }
     for (const pair of byAthleteWeek.values().filter((items) => items.length === 2)) {
       const strokeIndexes = pair.map((test) => [test.time_25y_breaststroke_seconds, test.time_25y_freestyle_seconds, test.time_25y_fly_seconds, test.time_25y_backstroke_seconds].findIndex((value) => value !== null));
-      expect(strokeIndexes[0]).toBe(strokeIndexes[1]);
+      expect(strokeIndexes[0]).not.toBe(strokeIndexes[1]);
     }
-    const pairedDeltas = [...byAthleteWeek.values()].filter((items) => items.length === 2).map((pair) => {
-      const times = pair.map((test) => [test.time_25y_breaststroke_seconds, test.time_25y_freestyle_seconds, test.time_25y_fly_seconds, test.time_25y_backstroke_seconds].find((value) => value !== null)!);
-      const mondayIndex = pair.findIndex((test) => test.session_key === "monday_am_test");
-      return Math.round((times[1 - mondayIndex] - times[mondayIndex]) * 100) / 100;
-    });
-    expect(new Set(pairedDeltas).size).toBeGreaterThanOrEqual(5);
-    expect(pairedDeltas.some((delta) => delta > 0)).toBe(true);
-    expect(pairedDeltas.some((delta) => delta < 0)).toBe(true);
-    expect(pairedDeltas).not.toContain(0);
-    const pairedPaceDeltas = [...byAthleteWeek.values()].filter((items) => items.length === 2).flatMap((pair) => {
-      const monday = pair.find((test) => test.session_key === "monday_am_test")!;
-      const friday = pair.find((test) => test.session_key === "friday_am_test")!;
-      return [
-        friday.pace_3x100_breaststroke_seconds! - monday.pace_3x100_breaststroke_seconds!,
-        friday.pace_3x100_freestyle_seconds! - monday.pace_3x100_freestyle_seconds!,
-        friday.pace_3x100_fly_seconds! - monday.pace_3x100_fly_seconds!,
-        friday.pace_3x100_backstroke_seconds! - monday.pace_3x100_backstroke_seconds!,
-        friday.pace_3x100_im_seconds! - monday.pace_3x100_im_seconds!,
-      ].map((delta) => Math.round(delta * 100) / 100);
-    });
-    expect(new Set(pairedPaceDeltas).size).toBeGreaterThanOrEqual(6);
-    expect(pairedPaceDeltas.some((delta) => delta > 0)).toBe(true);
-    expect(pairedPaceDeltas.some((delta) => delta < 0)).toBe(true);
-    expect(pairedPaceDeltas).not.toContain(0);
+    expect(new Set(tests.map((test) => test.pace_3x100_freestyle_seconds)).size).toBeGreaterThanOrEqual(20);
     expect(new Set(logs.flatMap((entry) => entry.rpe === null ? [] : [entry.rpe])).size).toBeGreaterThanOrEqual(5);
     expect(new Set(logs.flatMap((entry) => entry.fatigue === null ? [] : [entry.fatigue])).size).toBeGreaterThanOrEqual(5);
   });

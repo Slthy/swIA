@@ -109,22 +109,23 @@ export interface ZonePoint {
   zone5: number;
 }
 
-export interface SwimTestPoint {
+export type TestDay = "Monday" | "Friday";
+
+export interface Daily25yPoint {
   date: string;
-  session: "Monday AM" | "Friday AM";
-  time25ySeconds: number | null;
-  pace3x100Seconds: number | null;
-  time25yBreaststrokeSeconds: number | null;
-  time25yFreestyleSeconds: number | null;
-  time25yFlySeconds: number | null;
-  time25yBackstrokeSeconds: number | null;
-  pace3x100BreaststrokeSeconds: number | null;
-  pace3x100FreestyleSeconds: number | null;
-  pace3x100FlySeconds: number | null;
-  pace3x100BackstrokeSeconds: number | null;
-  pace3x100ImSeconds: number | null;
+  day: TestDay;
+  stroke: Exclude<SwimStroke, "im"> | "legacy";
+  timeSeconds: number;
   kickCount: number | null;
   strokeCount: number | null;
+  athleteCount: number;
+}
+
+export interface Daily3x100Point {
+  date: string;
+  day: TestDay;
+  paceSeconds: number;
+  athleteCount: number;
 }
 
 export interface FatiguePoint {
@@ -140,35 +141,14 @@ export interface SessionEffortPoint {
   fatigue: number | null;
 }
 
-export interface Weekly25yPoint {
-  weekStart: string;
-  stroke: Exclude<SwimStroke, "im"> | "legacy";
-  athleteId: string;
-  athleteName: string;
-  mondaySeconds: number;
-  fridaySeconds: number;
-  deltaSeconds: number;
-}
-
-export interface Weekly3x100Point {
-  weekStart: string;
-  stroke: SwimStroke | "legacy";
-  athleteId: string;
-  athleteName: string;
-  mondaySeconds: number;
-  fridaySeconds: number;
-  deltaSeconds: number;
-}
-
 export interface DashboardData {
   summary: DashboardSummary;
   wellness: WellnessPoint[];
   recovery: RecoveryPoint[];
   load: LoadPoint[];
   zones: ZonePoint[];
-  swimTests: SwimTestPoint[];
+  daily25y: Daily25yPoint[];
+  daily3x100: Daily3x100Point[];
   fatigue: FatiguePoint[];
   effort: SessionEffortPoint[];
-  weekly25y: Weekly25yPoint[];
-  weekly3x100: Weekly3x100Point[];
 }

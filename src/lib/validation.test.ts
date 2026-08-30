@@ -5,11 +5,11 @@ const context = { activityDate: "2026-08-24", dateSource: "device", deviceRecord
 
 describe("log validation", () => {
   it("accepts a valid Monday test", () => {
-    const result = logInputSchema.safeParse({ ...context, logType: "monday_test", sessionKey: "monday_am_test", rpe: 7, fatigue: 5, pace3x100Seconds: null, time25ySeconds: 12.3, kickCount: null, strokeCount: null });
+    const result = logInputSchema.safeParse({ ...context, logType: "monday_test", sessionKey: "monday_am_test", rpe: 7, fatigue: 5, pace3x100Seconds: null, time25ySeconds: null, time25yFreestyleSeconds: 12.3, pace3x100FreestyleSeconds: 65.2, kickCount: null, strokeCount: null });
     expect(result.success).toBe(true);
   });
 
-  it("accepts one 25y stroke and independent 3×100 stroke times", () => {
+  it("accepts one assigned 25y stroke and a freestyle 3×100 pace", () => {
     const result = logInputSchema.safeParse({
       ...context,
       logType: "monday_test",
@@ -20,13 +20,26 @@ describe("log validation", () => {
       time25yFreestyleSeconds: 10.8,
       time25yFlySeconds: null,
       time25yBackstrokeSeconds: null,
-      pace3x100BreaststrokeSeconds: 76.4,
+      pace3x100BreaststrokeSeconds: null,
       pace3x100FreestyleSeconds: 61.2,
-      pace3x100FlySeconds: 68.1,
+      pace3x100FlySeconds: null,
       pace3x100BackstrokeSeconds: null,
-      pace3x100ImSeconds: 67.5,
+      pace3x100ImSeconds: null,
     });
     expect(result.success).toBe(true);
+  });
+
+  it("rejects non-freestyle 3×100 pace fields", () => {
+    const result = logInputSchema.safeParse({
+      ...context,
+      logType: "monday_test",
+      sessionKey: "monday_am_test",
+      rpe: 7,
+      fatigue: 5,
+      time25yFreestyleSeconds: 10.8,
+      pace3x100FlySeconds: 68.1,
+    });
+    expect(result.success).toBe(false);
   });
 
   it("rejects more than one 25y stroke in a test session", () => {

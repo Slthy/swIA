@@ -84,6 +84,13 @@ export const logInputSchema = z
       });
     }
     if (value.logType === "monday_test" || value.logType === "friday_test") {
+      if (value.time25ySeconds !== null) {
+        context.addIssue({
+          code: "custom",
+          path: ["time25ySeconds"],
+          message: "Assign a stroke to every new 25y result.",
+        });
+      }
       const entered25yTimes = [
         value.time25ySeconds,
         value.time25yBreaststrokeSeconds,
@@ -96,6 +103,20 @@ export const logInputSchema = z
           code: "custom",
           path: ["time25yFreestyleSeconds"],
           message: "Enter one 25y stroke per test session.",
+        });
+      }
+      const nonFreestyle3x100 = [
+        value.pace3x100Seconds,
+        value.pace3x100BreaststrokeSeconds,
+        value.pace3x100FlySeconds,
+        value.pace3x100BackstrokeSeconds,
+        value.pace3x100ImSeconds,
+      ].some((pace) => pace !== null);
+      if (nonFreestyle3x100) {
+        context.addIssue({
+          code: "custom",
+          path: ["pace3x100FreestyleSeconds"],
+          message: "The 3×100 test is freestyle only.",
         });
       }
     }

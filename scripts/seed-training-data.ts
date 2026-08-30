@@ -116,8 +116,8 @@ async function main() {
 
   const verification = await verifyReplacement(supabase, mockAthletes, groups, startDate, endDateISO, matchingLegacyLogs.map((log) => log.id));
   process.stdout.write(`Replacement complete: ${verification.memberships} mock memberships, ${verification.mockLogs} mock logs, and ${verification.genderRosters} gender rosters verified.\n`);
-  process.stdout.write(`${verification.paired25yTests} Monday–Friday 25y pairs verified with ${verification.distinct25yDeltas} distinct deltas (${verification.minimum25yDelta}s to ${verification.maximum25yDelta}s).\n`);
-  process.stdout.write(`${verification.paired3x100Strokes} Monday–Friday 3×100 stroke pairs verified with ${verification.distinct3x100Deltas} distinct deltas (${verification.minimum3x100Delta}s to ${verification.maximum3x100Delta}s).\n`);
+  process.stdout.write(`${verification.testRows} daily test rows verified across ${verification.assigned25yStrokes} assigned 25y strokes; ${verification.differentStrokeWeeks} complete weeks use independent Monday/Friday strokes.\n`);
+  process.stdout.write(`${verification.freestyle3x100Rows} freestyle-only 3×100 results verified; non-freestyle pace fields are empty.\n`);
   process.stdout.write(`${matchingLegacyLogs.length} matching real-athlete seed logs were removed; ${storedLegacyLogs.length - matchingLegacyLogs.length} non-matching rows were preserved.\n`);
   process.stdout.write(`${inserted} mock logs were newly inserted; ${mockLogs.length - inserted} existing identities were found before the test refresh.\n`);
   process.stdout.write(`${testRefresh.refreshed} deterministic mock swim-test rows were refreshed with stroke-specific times.\n`);
@@ -372,7 +372,7 @@ async function verifyReplacement(
   if (genderRosters?.length !== 15 || genderRosters.some((athlete) => expectedCategoryById.get(athlete.user_id) !== athlete.team_category)) {
     throw new Error("The 15 mock gender rosters do not match the deterministic seed plan.");
   }
-  const testVerification = await verifyMock25yPairs(supabase, athletes, startDate, endDate);
+  const testVerification = await verifyMockTestRows(supabase, athletes, startDate, endDate);
   for (let index = 0; index < removedIds.length; index += 200) {
     const { count, error } = await supabase.from("athlete_logs").select("*", { count: "exact", head: true }).in("id", removedIds.slice(index, index + 200));
     if (error) throw error;
@@ -388,15 +388,14 @@ const specific25yFields = [
   "time_25y_backstroke_seconds",
 ] as const;
 
-const specific3x100Fields = [
+const nonFreestyle3x100Fields = [
   "pace_3x100_breaststroke_seconds",
-  "pace_3x100_freestyle_seconds",
   "pace_3x100_fly_seconds",
   "pace_3x100_backstroke_seconds",
   "pace_3x100_im_seconds",
 ] as const;
 
-async function verifyMock25yPairs(
+async function verifyMockTestRows(
   supabase: SupabaseClient,
   athletes: AssignedSeedAthlete[],
   startDate: string,
@@ -404,7 +403,7 @@ async function verifyMock25yPairs(
 ) {
   const { data, error } = await supabase
     .from("athlete_logs")
-    .select("athlete_id, activity_date, session_key, time_25y_breaststroke_seconds, time_25y_freestyle_seconds, time_25y_fly_seconds, time_25y_backstroke_seconds, pace_3x100_breaststroke_seconds, pace_3x100_freestyle_seconds, pace_3x100_fly_seconds, pace_3x100_backstroke_seconds, pace_3x100_im_seconds")
+    .select("athlete_id, activity_date, session_key, time_25y_seconds, time_25y_breaststroke_seconds, time_25y_freestyle_seconds, time_25y_fly_seconds, time_25y_backstroke_seconds, kick_count, stroke_count, pace_3x100_seconds, pace_3x100_breaststroke_seconds, pace_3x100_freestyle_seconds, pace_3x100_fly_seconds, pace_3x100_backstroke_seconds, pace_3x100_im_seconds")
     .in("athlete_id", athletes.map((athlete) => athlete.id))
     .in("session_key", ["monday_am_test", "friday_am_test"])
     .gte("activity_date", startDate)
@@ -413,7 +412,12 @@ async function verifyMock25yPairs(
   if (error) throw error;
   if (data?.length !== 135) throw new Error(`Expected 135 mock swim-test rows, found ${data?.length ?? 0}.`);
 
-  const byAthleteWeek = new Map<string, Array<{ session: string; stroke: string; seconds: number; paces: Record<string, number> }>>();
+  const byAthleteWeek = new Map<string, Array<{ session: string; stroke: string }>>();
+  const assignedStrokes = new Set<string>();
+  const times = new Set<number>();
+  const kickCounts = new Set<number>();
+  const strokeCounts = new Set<number>();
+  const freestylePaces = new Set<number>();
   for (const row of data ?? []) {
     const entered = specific25yFields.flatMap((field) => {
       const raw = row[field];
@@ -422,47 +426,52 @@ async function verifyMock25yPairs(
     if (entered.length !== 1 || !Number.isFinite(entered[0].seconds)) {
       throw new Error(`Mock test ${row.athlete_id}:${row.activity_date} must contain exactly one valid 25y stroke time.`);
     }
-    const paces = Object.fromEntries(specific3x100Fields.map((field) => [field, Number(row[field])]));
-    if (Object.values(paces).some((pace) => !Number.isFinite(pace))) {
-      throw new Error(`Mock test ${row.athlete_id}:${row.activity_date} must contain all five valid 3×100 pace values.`);
+    if (row.time_25y_seconds !== null) {
+      throw new Error(`Mock test ${row.athlete_id}:${row.activity_date} must not use the unassigned legacy 25y field.`);
     }
+    const freestylePace = Number(row.pace_3x100_freestyle_seconds);
+    if (!Number.isFinite(freestylePace)) {
+      throw new Error(`Mock test ${row.athlete_id}:${row.activity_date} must contain a valid freestyle 3×100 pace.`);
+    }
+    if (row.pace_3x100_seconds !== null || nonFreestyle3x100Fields.some((field) => row[field] !== null)) {
+      throw new Error(`Mock test ${row.athlete_id}:${row.activity_date} must contain only a freestyle 3×100 pace.`);
+    }
+    const kickCount = Number(row.kick_count);
+    const strokeCount = Number(row.stroke_count);
+    if (!Number.isFinite(kickCount) || !Number.isFinite(strokeCount)) {
+      throw new Error(`Mock test ${row.athlete_id}:${row.activity_date} must contain valid kick and stroke counts.`);
+    }
+    assignedStrokes.add(entered[0].stroke);
+    times.add(entered[0].seconds);
+    kickCounts.add(kickCount);
+    strokeCounts.add(strokeCount);
+    freestylePaces.add(freestylePace);
     const key = `${row.athlete_id}:${mondayOfWeek(row.activity_date)}`;
     const week = byAthleteWeek.get(key) ?? [];
-    week.push({ session: row.session_key, ...entered[0], paces });
+    week.push({ session: row.session_key, stroke: entered[0].stroke });
     byAthleteWeek.set(key, week);
   }
 
-  const deltas: number[] = [];
-  const paceDeltas: number[] = [];
+  let completeWeeks = 0;
   for (const week of byAthleteWeek.values()) {
     const monday = week.find((test) => test.session === "monday_am_test");
     const friday = week.find((test) => test.session === "friday_am_test");
     if (!monday || !friday) continue;
-    if (monday.stroke !== friday.stroke) throw new Error("A mock Monday–Friday pair uses different 25y strokes.");
-    deltas.push(Math.round((friday.seconds - monday.seconds) * 100) / 100);
-    for (const field of specific3x100Fields) {
-      paceDeltas.push(Math.round((friday.paces[field] - monday.paces[field]) * 100) / 100);
-    }
+    completeWeeks += 1;
+    if (monday.stroke === friday.stroke) throw new Error("A mock Monday–Friday pair must demonstrate independent 25y stroke assignment.");
   }
-  if (deltas.length !== 60) throw new Error(`Expected 60 paired mock 25y tests, found ${deltas.length}.`);
-  const distinct = new Set(deltas);
-  if (distinct.size < 5 || deltas.includes(0) || !deltas.some((delta) => delta < 0) || !deltas.some((delta) => delta > 0)) {
-    throw new Error("Mock 25y deltas need at least five non-zero values with both improvements and regressions.");
+  if (completeWeeks !== 60) throw new Error(`Expected 60 complete mock test weeks, found ${completeWeeks}.`);
+  if (assignedStrokes.size !== specific25yFields.length) {
+    throw new Error(`Expected all four assigned 25y strokes, found ${assignedStrokes.size}.`);
   }
-  if (paceDeltas.length !== 300) throw new Error(`Expected 300 paired mock 3×100 stroke results, found ${paceDeltas.length}.`);
-  const distinctPaceDeltas = new Set(paceDeltas);
-  if (distinctPaceDeltas.size < 6 || paceDeltas.includes(0) || !paceDeltas.some((delta) => delta < 0) || !paceDeltas.some((delta) => delta > 0)) {
-    throw new Error("Mock 3×100 deltas need at least six non-zero values with both improvements and regressions.");
+  if (times.size < 20 || kickCounts.size < 8 || strokeCounts.size < 8 || freestylePaces.size < 20) {
+    throw new Error("Mock test time, kick, stroke, and freestyle-pace metrics need meaningful variation.");
   }
   return {
-    paired25yTests: deltas.length,
-    distinct25yDeltas: distinct.size,
-    minimum25yDelta: Math.min(...deltas),
-    maximum25yDelta: Math.max(...deltas),
-    paired3x100Strokes: paceDeltas.length,
-    distinct3x100Deltas: distinctPaceDeltas.size,
-    minimum3x100Delta: Math.min(...paceDeltas),
-    maximum3x100Delta: Math.max(...paceDeltas),
+    testRows: data?.length ?? 0,
+    assigned25yStrokes: assignedStrokes.size,
+    differentStrokeWeeks: completeWeeks,
+    freestyle3x100Rows: data?.length ?? 0,
   };
 }
 

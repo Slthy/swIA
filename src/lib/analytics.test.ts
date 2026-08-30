@@ -25,45 +25,38 @@ describe("dashboard aggregation", () => {
     expect(data.zones[0]).toMatchObject({ zone1: 15, zone2: 30 });
   });
 
-  it("keeps swim-test strokes separate and computes the best time across strokes", () => {
-    const testLog = log("1", "2026-08-24", "a", "monday_am_test", {
+  it("groups daily 25y results by assigned stroke and keeps 3x100 freestyle only", () => {
+    const freestyle = log("1", "2026-08-24", "a", "monday_am_test", {
       logType: "monday_test",
       time25yFreestyleSeconds: 10.9,
-      time25yBreaststrokeSeconds: 13.4,
       pace3x100FreestyleSeconds: 61.2,
-      pace3x100ImSeconds: 67.8,
+      kickCount: 20,
+      strokeCount: 34,
     });
-    const data = buildDashboardData([testLog]);
+    const breaststroke = log("2", "2026-08-24", "b", "monday_am_test", { logType: "monday_test", time25yBreaststrokeSeconds: 13.4, kickCount: 24, strokeCount: 38 });
+    const data = buildDashboardData([freestyle, breaststroke]);
     expect(data.summary.best25ySeconds).toBe(10.9);
-    expect(data.swimTests[0]).toMatchObject({
-      time25yFreestyleSeconds: 10.9,
-      time25yBreaststrokeSeconds: 13.4,
-      pace3x100FreestyleSeconds: 61.2,
-      pace3x100ImSeconds: 67.8,
-      time25yFlySeconds: null,
-    });
+    expect(data.summary.best3x100Seconds).toBe(61.2);
+    expect(data.daily25y).toEqual([
+      expect.objectContaining({ day: "Monday", stroke: "breaststroke", timeSeconds: 13.4, kickCount: 24, strokeCount: 38, athleteCount: 1 }),
+      expect.objectContaining({ day: "Monday", stroke: "freestyle", timeSeconds: 10.9, kickCount: 20, strokeCount: 34, athleteCount: 1 }),
+    ]);
+    expect(data.daily3x100).toEqual([{ date: "2026-08-24", day: "Monday", paceSeconds: 61.2, athleteCount: 1 }]);
   });
 
-  it("keeps athlete pairs separate and computes improvement as a negative Friday-minus-Monday delta", () => {
-    const monday = log("1", "2026-08-24", "a", "monday_am_test", { logType: "monday_test", rpe: 8, fatigue: 6, time25yFreestyleSeconds: 11.1, pace3x100FreestyleSeconds: 65 });
-    const friday = log("2", "2026-08-28", "a", "friday_am_test", { logType: "friday_test", rpe: 7, fatigue: 5, time25yFreestyleSeconds: 10.8, pace3x100FreestyleSeconds: 63.8 });
-    const secondMonday = log("3", "2026-08-24", "b", "monday_am_test", { logType: "monday_test", time25yFreestyleSeconds: 12.2, pace3x100FreestyleSeconds: 62 });
-    const secondFriday = log("4", "2026-08-28", "b", "friday_am_test", { logType: "friday_test", time25yFreestyleSeconds: 11.9, pace3x100FreestyleSeconds: 62.5 });
+  it("allows Monday and Friday to use different strokes and averages team values by day", () => {
+    const monday = log("1", "2026-08-24", "a", "monday_am_test", { logType: "monday_test", rpe: 8, fatigue: 6, time25yFreestyleSeconds: 11.1, pace3x100FreestyleSeconds: 65, kickCount: 20, strokeCount: 32 });
+    const friday = log("2", "2026-08-28", "a", "friday_am_test", { logType: "friday_test", rpe: 7, fatigue: 5, time25yBreaststrokeSeconds: 13.8, pace3x100FreestyleSeconds: 63.8, kickCount: 24, strokeCount: 38 });
+    const secondMonday = log("3", "2026-08-24", "b", "monday_am_test", { logType: "monday_test", time25yFreestyleSeconds: 12.1, pace3x100FreestyleSeconds: 63, kickCount: 22, strokeCount: 34 });
+    const secondFriday = log("4", "2026-08-28", "b", "friday_am_test", { logType: "friday_test", time25yBreaststrokeSeconds: 14.2, pace3x100FreestyleSeconds: 62.2, kickCount: 26, strokeCount: 40 });
     const data = buildDashboardData([monday, friday, secondMonday, secondFriday]);
-    expect(data.weekly25y).toHaveLength(2);
-    expect(data.weekly25y[0]).toMatchObject({
-      weekStart: "2026-08-24",
-      stroke: "freestyle",
-      athleteId: "a",
-      athleteName: "a",
-      mondaySeconds: 11.1,
-      fridaySeconds: 10.8,
-      deltaSeconds: -0.3,
-    });
-    expect(data.weekly25y[1]).toMatchObject({ athleteId: "b", mondaySeconds: 12.2, fridaySeconds: 11.9, deltaSeconds: -0.3 });
-    expect(data.weekly3x100).toEqual([
-      expect.objectContaining({ athleteId: "a", stroke: "freestyle", mondaySeconds: 65, fridaySeconds: 63.8, deltaSeconds: -1.2 }),
-      expect.objectContaining({ athleteId: "b", stroke: "freestyle", mondaySeconds: 62, fridaySeconds: 62.5, deltaSeconds: 0.5 }),
+    expect(data.daily25y).toEqual([
+      expect.objectContaining({ date: "2026-08-24", day: "Monday", stroke: "freestyle", timeSeconds: 11.6, kickCount: 21, strokeCount: 33, athleteCount: 2 }),
+      expect.objectContaining({ date: "2026-08-28", day: "Friday", stroke: "breaststroke", timeSeconds: 14, kickCount: 25, strokeCount: 39, athleteCount: 2 }),
+    ]);
+    expect(data.daily3x100).toEqual([
+      { date: "2026-08-24", day: "Monday", paceSeconds: 64, athleteCount: 2 },
+      { date: "2026-08-28", day: "Friday", paceSeconds: 63, athleteCount: 2 },
     ]);
     expect(data.effort).toEqual([
       { date: "2026-08-24", sessionKey: "monday_am_test", rpe: 8, fatigue: 6 },
