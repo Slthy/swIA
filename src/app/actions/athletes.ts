@@ -49,6 +49,7 @@ export async function updateAthleteProfileAction(
     .select("id, display_name, username, role, athletes!inner(team_category)")
     .eq("id", parsed.data.athleteId)
     .eq("role", "athlete")
+    .is("deleted_at", null)
     .maybeSingle();
   if (targetError || !target) return { error: "That athlete account could not be found.", success: null };
 

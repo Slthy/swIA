@@ -23,7 +23,7 @@ export function AppShell({ profile, preview, children }: { profile: Profile; pre
   const links = [...(profile.role === "athlete" ? athleteLinks : staffLinks)];
   if (profile.role === "admin") links.push({ href: "/admin", label: "Admin", icon: Settings });
   return (
-    <div className="min-h-screen lg:grid lg:grid-cols-[248px_1fr]">
+    <div className="min-h-screen min-h-dvh lg:grid lg:grid-cols-[248px_1fr]">
       <PwaRegistration />
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-[248px] flex-col bg-[#082a40] px-5 py-6 text-white lg:flex">
         <Logo inverse />
@@ -38,8 +38,8 @@ export function AppShell({ profile, preview, children }: { profile: Profile; pre
       </aside>
       <div className="min-w-0 lg:col-start-2">
         <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-[#dce5e9]/80 bg-[#f4f7f8]/90 px-5 backdrop-blur-lg lg:hidden"><Logo /> <span className="max-w-32 truncate text-xs font-semibold text-[#607181]">{profile.displayName}</span></header>
-        <main className="mx-auto w-full max-w-[1500px] px-4 pb-28 pt-6 sm:px-6 lg:px-8 lg:pb-10 lg:pt-8">{preview && <div className="mb-5 rounded-xl border border-[#dccba8] bg-[#fffaf0] px-4 py-3 text-sm text-[#705a32]"><strong>Preview mode:</strong> showing generated data. Configure Supabase to enable authentication and persistence.</div>}{children}</main>
-        <nav className="fixed inset-x-0 bottom-0 z-30 grid border-t border-[#dce5e9] bg-white/95 pb-[max(.45rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur lg:hidden" style={{ gridTemplateColumns: `repeat(${links.length}, minmax(0, 1fr))` }} aria-label="Mobile navigation">
+        <main className="mx-auto w-full max-w-[1500px] px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-6 sm:px-6 lg:px-8 lg:pb-10 lg:pt-8">{preview && <div className="mb-5 rounded-xl border border-[#dccba8] bg-[#fffaf0] px-4 py-3 text-sm text-[#705a32]"><strong>Preview mode:</strong> showing generated data. Configure Supabase to enable authentication and persistence.</div>}{children}</main>
+        <nav className="mobile-bottom-nav z-30 grid border-t border-[#dce5e9] bg-white/95 pt-2 backdrop-blur lg:hidden" style={{ gridTemplateColumns: `repeat(${links.length}, minmax(0, 1fr))` }} aria-label="Mobile navigation">
           {links.map(({ href, label, icon: Icon }) => <Link key={href} href={href} className="flex min-h-13 flex-col items-center justify-center gap-1 text-[.68rem] font-semibold text-[#607181]"><Icon className="size-5" />{label}</Link>)}
         </nav>
       </div>

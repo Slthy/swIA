@@ -33,18 +33,26 @@ export interface ProfileListItem {
   active: boolean;
 }
 
+const LOG_PAGE_SIZE = 1_000;
+
 export async function getLogs(profile: Profile, query: LogQuery = {}): Promise<AthleteLog[]> {
   if (!hasSupabaseEnvironment()) return createDemoLogs();
   const supabase = await createServerSupabaseClient();
-  let request = supabase.from("athlete_logs").select("*").is("deleted_at", null).order("activity_date", { ascending: true });
   const athleteId = profile.role === "athlete" ? profile.id : query.athleteId;
-  if (athleteId) request = request.eq("athlete_id", athleteId);
-  if (query.from) request = request.gte("activity_date", query.from);
-  if (query.to) request = request.lte("activity_date", query.to);
-  const { data, error } = await request;
-  if (error) throw new Error(error.message);
-
-  const rows = (data ?? []) as AthleteLogRow[];
+  const rows = await collectPagedRows<AthleteLogRow>(async (from, to) => {
+    let request = supabase
+      .from("athlete_logs")
+      .select("*")
+      .is("deleted_at", null)
+      .order("activity_date", { ascending: true })
+      .order("created_at", { ascending: true })
+      .range(from, to);
+    if (athleteId) request = request.eq("athlete_id", athleteId);
+    if (query.from) request = request.gte("activity_date", query.from);
+    if (query.to) request = request.lte("activity_date", query.to);
+    const { data, error } = await request;
+    return { data: (data ?? []) as AthleteLogRow[], error };
+  });
   const ids = [...new Set(rows.map((row) => row.athlete_id))];
   const names = new Map<string, string>();
   if (ids.length) {
@@ -67,6 +75,7 @@ export async function getAthletes(): Promise<AthleteListItem[]> {
     .from("profiles")
     .select("id, display_name, username, active, athletes!inner(team_category)")
     .eq("role", "athlete")
+    .is("deleted_at", null)
     .order("display_name");
   if (error) throw new Error(error.message);
   return (data ?? []).map((item) => {
@@ -97,7 +106,7 @@ export async function getGroups(): Promise<GroupListItem[]> {
 export async function getProfiles(): Promise<ProfileListItem[]> {
   if (!hasSupabaseEnvironment()) return [];
   const supabase = await createServerSupabaseClient();
-  const { data, error } = await supabase.from("profiles").select("id, display_name, username, role, active").order("display_name");
+  const { data, error } = await supabase.from("profiles").select("id, display_name, username, role, active").is("deleted_at", null).order("display_name");
   if (error) throw new Error(error.message);
   return (data ?? []).map((profile) => ({ id: profile.id, displayName: profile.display_name, username: profile.username, role: profile.role, active: profile.active }));
 }
@@ -105,9 +114,15 @@ export async function getProfiles(): Promise<ProfileListItem[]> {
 export async function getDeletedLogs(profile: Profile): Promise<AthleteLog[]> {
   if (!hasSupabaseEnvironment() || profile.role !== "admin") return [];
   const supabase = await createServerSupabaseClient();
-  const { data, error } = await supabase.from("athlete_logs").select("*").not("deleted_at", "is", null).order("deleted_at", { ascending: false }).limit(50);
-  if (error) throw new Error(error.message);
-  const rows = (data ?? []) as AthleteLogRow[];
+  const rows = await collectPagedRows<AthleteLogRow>(async (from, to) => {
+    const { data, error } = await supabase
+      .from("athlete_logs")
+      .select("*")
+      .not("deleted_at", "is", null)
+      .order("deleted_at", { ascending: false })
+      .range(from, to);
+    return { data: (data ?? []) as AthleteLogRow[], error };
+  });
   const ids = [...new Set(rows.map((row) => row.athlete_id))];
   const names = new Map<string, string>();
   if (ids.length) {
@@ -116,3 +131,18 @@ export async function getDeletedLogs(profile: Profile): Promise<AthleteLog[]> {
   }
   return rows.map((row) => mapAthleteLog({ ...row, profiles: { display_name: names.get(row.athlete_id) ?? "Athlete" } }));
 }
+
+async function collectPagedRows<T>(
+  fetchPage: (from: number, to: number) => Promise<{ data: T[]; error: { message: string } | null }>,
+  pageSize = LOG_PAGE_SIZE,
+): Promise<T[]> {
+  const rows: T[] = [];
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await fetchPage(from, from + pageSize - 1);
+    if (error) throw new Error(error.message);
+    rows.push(...data);
+    if (data.length < pageSize) return rows;
+  }
+}
+
+export const dataInternals = { collectPagedRows };
