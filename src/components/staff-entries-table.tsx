@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { format, parseISO } from "date-fns";
 import { Trash2 } from "lucide-react";
 import { bulkSoftDeleteLogsAction, type BulkLogActionState } from "@/app/actions/logs";
@@ -12,29 +13,47 @@ const initialState: BulkLogActionState = { error: null, success: null };
 
 export function StaffEntriesTable({ logs, canDelete }: { logs: AthleteLog[]; canDelete: boolean }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [state, action, pending] = useActionState(bulkSoftDeleteLogsAction, initialState);
+  const [state, setState] = useState<BulkLogActionState>(initialState);
+  const [pending, startTransition] = useTransition();
+  const router = useRouter();
   const allSelected = canDelete && logs.length > 0 && selected.size === logs.length;
 
   useEffect(() => {
-    if (state.success) setSelected(new Set());
-  }, [state.success]);
+    const available = new Set(logs.map((log) => log.id));
+    setSelected((current) => new Set([...current].filter((id) => available.has(id))));
+  }, [logs]);
 
   const toggle = (id: string) => setSelected((current) => {
     const next = new Set(current);
     if (next.has(id)) next.delete(id); else next.add(id);
     return next;
   });
+  const deleteSelected = () => {
+    const ids = [...selected];
+    if (!ids.length || pending) return;
+    if (!window.confirm(`Delete ${ids.length} selected ${ids.length === 1 ? "entry" : "entries"}? They can be restored from the admin page.`)) return;
+    setState(initialState);
+    startTransition(async () => {
+      try {
+        const result = await bulkSoftDeleteLogsAction(ids);
+        setState(result);
+        if (result.success) {
+          setSelected(new Set());
+          router.refresh();
+        }
+      } catch {
+        setState({ error: "The selected entries could not be deleted. Try again.", success: null });
+      }
+    });
+  };
 
   return <Card className="overflow-hidden">
-    {canDelete && <form action={action} onSubmit={(event) => {
-      if (!window.confirm(`Delete ${selected.size} selected ${selected.size === 1 ? "entry" : "entries"}? They can be restored from the admin page.`)) event.preventDefault();
-    }} className="flex flex-wrap items-center gap-3 border-b border-[#e5ecef] bg-[#f7fafb] px-4 py-3 sm:px-5">
-      {logs.filter((log) => selected.has(log.id)).map((log) => <input key={log.id} type="hidden" name="logIds" value={log.id} />)}
+    {canDelete && <div className="flex flex-wrap items-center gap-3 border-b border-[#e5ecef] bg-[#f7fafb] px-4 py-3 sm:px-5">
       <span className="text-xs font-semibold text-[#607181]">{selected.size} selected</span>
-      <button type="submit" disabled={!selected.size || pending} className="ml-auto inline-flex min-h-9 items-center gap-2 rounded-lg bg-[#bf4545] px-3 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"><Trash2 className="size-3.5" />{pending ? "Deleting…" : "Delete selected"}</button>
+      <button type="button" onClick={deleteSelected} disabled={!selected.size || pending} className="ml-auto inline-flex min-h-9 items-center gap-2 rounded-lg bg-[#bf4545] px-3 text-xs font-semibold text-white transition hover:bg-[#a83636] disabled:cursor-not-allowed disabled:opacity-40"><Trash2 className="size-3.5" />{pending ? "Deleting…" : "Delete selected"}</button>
       {state.error && <p role="alert" className="basis-full text-xs font-semibold text-red-700">{state.error}</p>}
       {state.success && <p role="status" className="basis-full text-xs font-semibold text-emerald-700">{state.success}</p>}
-    </form>}
+    </div>}
     <div className="overflow-x-auto">
       <table className="w-full min-w-[760px] text-left text-sm">
         <thead className="bg-[#f7fafb] text-[.65rem] uppercase tracking-[.1em] text-[#718491]"><tr>

@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { ShieldAlert, Trash2 } from "lucide-react";
 import { deleteAccountsAction, toggleAccountAction, type AccountMutationState } from "@/app/admin/actions";
 import { AccountPasswordForm } from "@/components/account-password-form";
@@ -11,27 +12,47 @@ const initialState: AccountMutationState = { error: null, success: null };
 
 export function AdminAccountsTable({ accounts, currentAccountId }: { accounts: ProfileListItem[]; currentAccountId: string }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [state, action, pending] = useActionState(deleteAccountsAction, initialState);
+  const [state, setState] = useState<AccountMutationState>(initialState);
+  const [pending, startTransition] = useTransition();
+  const router = useRouter();
   const deletable = accounts.filter((account) => account.id !== currentAccountId);
   const allSelected = deletable.length > 0 && selected.size === deletable.length;
 
-  useEffect(() => { if (state.success) setSelected(new Set()); }, [state.success]);
+  useEffect(() => {
+    const available = new Set(accounts.filter((account) => account.id !== currentAccountId).map((account) => account.id));
+    setSelected((current) => new Set([...current].filter((id) => available.has(id))));
+  }, [accounts, currentAccountId]);
   const toggle = (id: string) => setSelected((current) => {
     const next = new Set(current);
     if (next.has(id)) next.delete(id); else next.add(id);
     return next;
   });
+  const deleteSelected = () => {
+    const ids = [...selected];
+    if (!ids.length || pending) return;
+    if (!window.confirm(`Permanently delete ${ids.length} selected ${ids.length === 1 ? "account" : "accounts"}? Login access cannot be restored; historical records will be retained.`)) return;
+    setState(initialState);
+    startTransition(async () => {
+      try {
+        const result = await deleteAccountsAction(ids);
+        setState(result);
+        if (result.success) {
+          setSelected(new Set());
+          router.refresh();
+        }
+      } catch {
+        setState({ error: "The selected accounts could not be deleted. Try again.", success: null });
+      }
+    });
+  };
 
   return <Card className="overflow-hidden">
     <div className="flex flex-wrap items-center gap-3 border-b border-[#e5ecef] bg-[#f7fafb] px-5 py-4">
       <div><h2 className="font-bold text-[#17384d]">All accounts</h2><p className="mt-1 text-xs text-[#718491]">Set passwords, deactivate access, or permanently delete selected accounts.</p></div>
-      <form action={action} onSubmit={(event) => {
-        if (!window.confirm(`Permanently delete ${selected.size} selected ${selected.size === 1 ? "account" : "accounts"}? Login access cannot be restored; historical records will be retained.`)) event.preventDefault();
-      }} className="ml-auto flex flex-wrap items-center justify-end gap-2">
-        {[...selected].map((id) => <input key={id} type="hidden" name="accountIds" value={id} />)}
+      <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
         <span className="text-xs font-semibold text-[#607181]">{selected.size} selected</span>
-        <button type="submit" disabled={!selected.size || pending} className="inline-flex min-h-9 items-center gap-2 rounded-lg bg-[#bf4545] px-3 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"><Trash2 className="size-3.5" />{pending ? "Deleting…" : "Delete selected"}</button>
-      </form>
+        <button type="button" onClick={deleteSelected} disabled={!selected.size || pending} className="inline-flex min-h-9 items-center gap-2 rounded-lg bg-[#bf4545] px-3 text-xs font-semibold text-white transition hover:bg-[#a83636] disabled:cursor-not-allowed disabled:opacity-40"><Trash2 className="size-3.5" />{pending ? "Deleting…" : "Delete selected"}</button>
+      </div>
       {state.error && <p role="alert" className="basis-full text-xs font-semibold text-red-700">{state.error}</p>}
       {state.success && <p role="status" className="basis-full text-xs font-semibold text-emerald-700">{state.success}</p>}
     </div>

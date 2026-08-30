@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { Save } from "lucide-react";
+import { Check, Save } from "lucide-react";
 import {
   updateAthleteProfileAction,
   type AthleteProfileActionState,
@@ -67,10 +67,13 @@ export function AthleteProfileForm({
         {canManageGroups ? (
           <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {groups.map((group) => (
-              <label key={group.id} className="flex min-h-11 items-center gap-3 rounded-xl border border-[#dce5e9] bg-white px-3 text-sm font-semibold text-[#304a5d]">
-                <input name="groupIds" type="checkbox" value={group.id} defaultChecked={selectedGroupIds.includes(group.id)} disabled={preview} className="size-4 accent-[#0a6f7e]" />
-                <span className="size-2.5 rounded-full" style={{ backgroundColor: group.color }} />
-                {group.name}
+              <label key={group.id} className="group relative flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border border-[#dce5e9] bg-white px-3 text-sm font-semibold text-[#304a5d] transition hover:border-[#9cb4bf] has-checked:border-[#0a6f7e] has-checked:bg-[#e4f4f5] has-disabled:cursor-not-allowed has-disabled:opacity-60">
+                <input name="groupIds" type="checkbox" value={group.id} defaultChecked={selectedGroupIds.includes(group.id)} disabled={preview} className="peer sr-only" />
+                <span className="size-3 rounded-full ring-2 ring-white" style={{ backgroundColor: group.color }} />
+                <span className="min-w-0 flex-1 truncate">{group.name}</span>
+                <span className="grid size-5 place-items-center rounded-full bg-[#edf2f4] text-transparent transition peer-checked:bg-[#0a6f7e] peer-checked:text-white">
+                  <Check className="size-3.5" strokeWidth={3} />
+                </span>
               </label>
             ))}
             {!groups.length && <p className="text-sm text-[#82929d]">No training groups have been created.</p>}

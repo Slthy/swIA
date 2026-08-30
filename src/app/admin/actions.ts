@@ -94,11 +94,12 @@ export async function updateAccountPasswordAction(
 }
 
 export async function deleteAccountsAction(
-  _state: AccountMutationState,
-  formData: FormData,
+  accountIds: unknown,
 ): Promise<AccountMutationState> {
   const actor = await requireRole(["admin"]);
-  const parsed = z.array(z.string().uuid()).min(1).max(500).safeParse([...new Set(formData.getAll("accountIds").map(String))]);
+  const parsed = z.array(z.string().uuid()).min(1).max(500).safeParse(
+    Array.isArray(accountIds) ? [...new Set(accountIds.map(String))] : accountIds,
+  );
   if (!parsed.success) return { error: "Select at least one valid account.", success: null };
   if (parsed.data.includes(actor.id)) return { error: "You cannot delete the account you are currently using.", success: null };
   const admin = createAdminSupabaseClient();
@@ -111,6 +112,13 @@ export async function deleteAccountsAction(
   if (targets?.length !== parsed.data.length) return { error: "One or more selected accounts are no longer available.", success: null };
 
   let deleted = 0;
+  const finish = (error: string | null = null): AccountMutationState => {
+    revalidatePath("/admin"); revalidatePath("/staff"); revalidatePath("/staff/athletes"); revalidatePath("/staff/entries");
+    return {
+      error,
+      success: deleted > 0 ? `${deleted} ${deleted === 1 ? "account" : "accounts"} deleted.` : null,
+    };
+  };
   for (const target of targets) {
     const deletedAt = new Date().toISOString();
     const tombstoneUsername = `deleted.${target.id.replaceAll("-", "")}`;
@@ -120,14 +128,13 @@ export async function deleteAccountsAction(
       username: tombstoneUsername,
       updated_at: deletedAt,
     }).eq("id", target.id).is("deleted_at", null);
-    if (markError) return { error: `Could not delete ${target.username}: ${markError.message}`, success: null };
+    if (markError) return finish(`Could not delete ${target.username}: ${markError.message}`);
 
     const { error: authError } = await admin.auth.admin.deleteUser(target.id, true);
     if (authError) {
       await admin.from("profiles").update({ active: target.active, deleted_at: null, username: target.username, updated_at: new Date().toISOString() }).eq("id", target.id);
-      return { error: `Could not delete ${target.username}: ${authError.message}`, success: null };
+      return finish(`Could not delete ${target.username}: ${authError.message}`);
     }
-    if (target.role === "athlete") await admin.from("group_memberships").delete().eq("athlete_id", target.id);
     await admin.from("audit_events").insert({
       actor_id: actor.id,
       action: "account.deleted",
@@ -136,9 +143,14 @@ export async function deleteAccountsAction(
       metadata: { role: target.role, username: target.username },
     });
     deleted += 1;
+    if (target.role === "athlete") {
+      const { error: membershipError } = await admin.from("group_memberships").delete().eq("athlete_id", target.id);
+      if (membershipError) {
+        return finish(`The account was deleted, but its training-group assignment could not be cleared: ${membershipError.message}`);
+      }
+    }
   }
-  revalidatePath("/admin"); revalidatePath("/staff"); revalidatePath("/staff/athletes"); revalidatePath("/staff/entries");
-  return { error: null, success: `${deleted} ${deleted === 1 ? "account" : "accounts"} deleted.` };
+  return finish();
 }
 
 export async function updateAthleteCategoryAction(formData: FormData) {
@@ -161,19 +173,60 @@ export async function createGroupAction(formData: FormData) {
   revalidatePath("/admin"); revalidatePath("/staff");
 }
 
-export async function setAthleteGroupsAction(formData: FormData) {
-  await requireRole(["admin"]);
-  const athleteId = z.string().uuid().safeParse(formData.get("athleteId"));
-  const groupIds = z.array(z.string().uuid()).safeParse(formData.getAll("groupIds"));
-  if (!athleteId.success || !groupIds.success) return;
-  const supabase = await createServerSupabaseClient();
-  const { error: deleteError } = await supabase.from("group_memberships").delete().eq("athlete_id", athleteId.data);
-  if (deleteError) throw new Error(deleteError.message);
-  if (groupIds.data.length) {
-    const { error } = await supabase.from("group_memberships").insert(groupIds.data.map((groupId) => ({ group_id: groupId, athlete_id: athleteId.data })));
-    if (error) throw new Error(error.message);
+export async function setAthleteGroupsAction(
+  athleteId: unknown,
+  groupIds: unknown,
+): Promise<AccountMutationState> {
+  const actor = await requireRole(["coach", "admin"]);
+  const parsed = z.object({
+    athleteId: z.string().uuid(),
+    groupIds: z.array(z.string().uuid()).max(100),
+  }).safeParse({
+    athleteId,
+    groupIds: Array.isArray(groupIds) ? [...new Set(groupIds.map(String))] : groupIds,
+  });
+  if (!parsed.success) return { error: "The athlete or group selection is invalid.", success: null };
+
+  const admin = createAdminSupabaseClient();
+  const [{ data: athlete, error: athleteError }, { data: validGroups, error: groupError }] = await Promise.all([
+    admin.from("profiles").select("id").eq("id", parsed.data.athleteId).eq("role", "athlete").is("deleted_at", null).maybeSingle(),
+    parsed.data.groupIds.length
+      ? admin.from("groups").select("id").in("id", parsed.data.groupIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  if (athleteError || !athlete) return { error: "That athlete account is unavailable.", success: null };
+  if (groupError || validGroups?.length !== parsed.data.groupIds.length) return { error: "One or more selected groups are unavailable.", success: null };
+
+  const { data: originalMemberships, error: membershipsError } = await admin
+    .from("group_memberships")
+    .select("group_id")
+    .eq("athlete_id", parsed.data.athleteId);
+  if (membershipsError) return { error: "The current group assignments could not be loaded.", success: null };
+  const { error: deleteError } = await admin.from("group_memberships").delete().eq("athlete_id", parsed.data.athleteId);
+  if (deleteError) return { error: deleteError.message, success: null };
+  if (parsed.data.groupIds.length) {
+    const { error } = await admin.from("group_memberships").insert(
+      parsed.data.groupIds.map((groupId) => ({ group_id: groupId, athlete_id: parsed.data.athleteId })),
+    );
+    if (error) {
+      if (originalMemberships?.length) {
+        await admin.from("group_memberships").insert(
+          originalMemberships.map((membership) => ({ group_id: membership.group_id, athlete_id: parsed.data.athleteId })),
+        );
+      }
+      return { error: "Training groups could not be updated. The previous assignment was restored.", success: null };
+    }
   }
-  revalidatePath("/admin"); revalidatePath("/staff");
+  await admin.from("audit_events").insert({
+    actor_id: actor.id,
+    action: "athlete.groups_updated",
+    entity_type: "profile",
+    entity_id: parsed.data.athleteId,
+    metadata: { group_ids: parsed.data.groupIds },
+  });
+  revalidatePath("/admin"); revalidatePath("/staff"); revalidatePath("/staff/athletes");
+  revalidatePath(`/staff/athletes/${parsed.data.athleteId}`);
+  return { error: null, success: "Training groups updated." };
 }
 
 export async function toggleAccountAction(formData: FormData) {

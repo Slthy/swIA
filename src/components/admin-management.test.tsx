@@ -1,12 +1,22 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AdminAccountsTable } from "@/components/admin-accounts-table";
+import { AthleteGroupAssignment } from "@/components/athlete-group-assignment";
 import { StaffEntriesTable } from "@/components/staff-entries-table";
 import type { AthleteLog } from "@/lib/types";
 
-vi.mock("@/app/actions/logs", () => ({ bulkSoftDeleteLogsAction: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  bulkDelete: vi.fn(),
+  deleteAccounts: vi.fn(),
+  refresh: vi.fn(),
+  setGroups: vi.fn(),
+}));
+
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mocks.refresh }) }));
+vi.mock("@/app/actions/logs", () => ({ bulkSoftDeleteLogsAction: mocks.bulkDelete }));
 vi.mock("@/app/admin/actions", () => ({
-  deleteAccountsAction: vi.fn(),
+  deleteAccountsAction: mocks.deleteAccounts,
+  setAthleteGroupsAction: mocks.setGroups,
   toggleAccountAction: vi.fn(),
   updateAccountPasswordAction: vi.fn(),
 }));
@@ -24,24 +34,64 @@ const log: AthleteLog = {
 };
 
 describe("admin selection controls", () => {
-  it("lets an administrator select entries for bulk deletion", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    mocks.bulkDelete.mockResolvedValue({ error: null, success: "1 entry moved to Deleted logs." });
+    mocks.deleteAccounts.mockResolvedValue({ error: null, success: "1 account deleted." });
+    mocks.setGroups.mockResolvedValue({ error: null, success: "Training groups updated." });
+  });
+
+  it("deletes the exact selected entries and refreshes the table", async () => {
     render(<StaffEntriesTable logs={[log]} canDelete />);
     const deleteButton = screen.getByRole("button", { name: "Delete selected" });
     expect(deleteButton).toBeDisabled();
     fireEvent.click(screen.getByRole("checkbox", { name: /Select Test Swimmer/ }));
     expect(deleteButton).toBeEnabled();
     expect(screen.getByText("1 selected")).toBeInTheDocument();
+    fireEvent.click(deleteButton);
+    await waitFor(() => expect(mocks.bulkDelete).toHaveBeenCalledWith([log.id]));
+    await waitFor(() => expect(mocks.refresh).toHaveBeenCalled());
+    expect(await screen.findByText("1 entry moved to Deleted logs.")).toBeInTheDocument();
   });
 
-  it("protects the current admin while exposing password and account selection controls", () => {
+  it("protects the current admin and deletes the selected athlete account", async () => {
+    const athleteId = "00000000-0000-4000-8000-000000000002";
     render(<AdminAccountsTable currentAccountId="00000000-0000-4000-8000-000000000001" accounts={[
       { id: "00000000-0000-4000-8000-000000000001", displayName: "Current Admin", username: "coach.admin", role: "admin", active: true },
-      { id: "00000000-0000-4000-8000-000000000002", displayName: "Athlete One", username: "athlete.one", role: "athlete", active: true },
+      { id: athleteId, displayName: "Athlete One", username: "athlete.one", role: "athlete", active: true },
     ]} />);
     expect(screen.getByRole("checkbox", { name: "Select account Current Admin" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Delete selected" })).toBeDisabled();
+    const deleteButton = screen.getByRole("button", { name: "Delete selected" });
+    expect(deleteButton).toBeDisabled();
     fireEvent.click(screen.getByRole("checkbox", { name: "Select account Athlete One" }));
-    expect(screen.getByRole("button", { name: "Delete selected" })).toBeEnabled();
+    expect(deleteButton).toBeEnabled();
     expect(screen.getByLabelText("New password for Athlete One")).toHaveAttribute("pattern", "[0-9]{6}");
+    fireEvent.click(deleteButton);
+    await waitFor(() => expect(mocks.deleteAccounts).toHaveBeenCalledWith([athleteId]));
+    expect(await screen.findByText("1 account deleted.")).toBeInTheDocument();
+  });
+
+  it("uses clear group toggles and saves the full assignment", async () => {
+    const athleteId = "00000000-0000-4000-8000-000000000002";
+    const sprintId = "00000000-0000-4000-8000-000000000021";
+    const distanceId = "00000000-0000-4000-8000-000000000022";
+    render(<AthleteGroupAssignment
+      athleteId={athleteId}
+      athleteName="Athlete One"
+      selectedGroupIds={[sprintId]}
+      groups={[
+        { id: sprintId, name: "Sprint", color: "#bf4545", athleteIds: [athleteId] },
+        { id: distanceId, name: "Distance", color: "#0a6f7e", athleteIds: [] },
+      ]}
+    />);
+    expect(screen.getByRole("button", { name: /Sprint/ })).toHaveAttribute("aria-pressed", "true");
+    const save = screen.getByRole("button", { name: "Save groups" });
+    expect(save).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: /Distance/ }));
+    expect(save).toBeEnabled();
+    fireEvent.click(save);
+    await waitFor(() => expect(mocks.setGroups).toHaveBeenCalledWith(athleteId, [sprintId, distanceId]));
+    expect(await screen.findByText("Saved")).toBeInTheDocument();
   });
 });

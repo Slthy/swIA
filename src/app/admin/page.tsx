@@ -1,11 +1,11 @@
 import {
   createGroupAction,
-  setAthleteGroupsAction,
   updateAthleteCategoryAction,
 } from "@/app/admin/actions";
 import { restoreLogAction } from "@/app/actions/logs";
 import { AdminAccountForm } from "@/components/admin-account-form";
 import { AdminAccountsTable } from "@/components/admin-accounts-table";
+import { AthleteGroupAssignment } from "@/components/athlete-group-assignment";
 import { ResetPinButton } from "@/components/reset-pin-button";
 import { Card } from "@/components/ui/card";
 import { SESSION_LABELS } from "@/lib/constants";
@@ -45,7 +45,7 @@ export default async function AdminPage() {
         <tbody className="divide-y divide-[#e5ecef]">{athletes.map((athlete) => <tr key={athlete.id}>
           <td className="px-5 py-4"><p className="font-semibold text-[#304a5d]">{athlete.displayName}</p><p className="mt-1 text-xs text-[#82929d]">{athlete.username}</p></td>
           <td className="px-5 py-4"><form action={updateAthleteCategoryAction} className="flex gap-2"><input type="hidden" name="athleteId" value={athlete.id} /><select name="category" defaultValue={athlete.teamCategory} className={field}><option value="unassigned">Unassigned</option><option value="men">Men</option><option value="women">Women</option></select><button className="rounded-lg border border-[#d4dfe4] px-3 text-xs font-semibold">Save</button></form></td>
-          <td className="px-5 py-4"><form action={setAthleteGroupsAction} className="flex gap-2"><input type="hidden" name="athleteId" value={athlete.id} /><select name="groupIds" multiple defaultValue={groups.filter((group) => group.athleteIds.includes(athlete.id)).map((group) => group.id)} className={`${field} min-w-36`}>{groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}</select><button className="rounded-lg border border-[#d4dfe4] px-3 text-xs font-semibold">Save</button></form></td>
+          <td className="px-5 py-4"><AthleteGroupAssignment athleteId={athlete.id} athleteName={athlete.displayName} groups={groups} selectedGroupIds={groups.filter((group) => group.athleteIds.includes(athlete.id)).map((group) => group.id)} /></td>
           <td className="px-5 py-4"><ResetPinButton userId={athlete.id} /></td>
         </tr>)}</tbody>
       </table>

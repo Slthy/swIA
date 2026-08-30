@@ -102,21 +102,29 @@ export async function softDeleteLogAction(formData: FormData) {
   const id = z.string().uuid().safeParse(formData.get("id"));
   if (!id.success) return;
   const supabase = await createServerSupabaseClient();
-  const { error } = await supabase.from("athlete_logs").update({ deleted_at: new Date().toISOString(), deleted_by: profile.id }).eq("id", id.data);
+  const { error } = await supabase.from("athlete_logs").update({ deleted_at: new Date().toISOString(), deleted_by: profile.id }).eq("id", id.data).is("deleted_at", null);
   if (error) throw new Error(error.message);
   revalidateLogViews(); revalidatePath("/admin");
 }
 
 export async function bulkSoftDeleteLogsAction(
-  _state: BulkLogActionState,
-  formData: FormData,
+  logIds: unknown,
 ): Promise<BulkLogActionState> {
   const profile = await requireRole(["admin"]);
-  const parsed = z.array(z.string().uuid()).min(1).max(5_000).safeParse([...new Set(formData.getAll("logIds").map(String))]);
+  const parsed = z.array(z.string().uuid()).min(1).max(5_000).safeParse(
+    Array.isArray(logIds) ? [...new Set(logIds.map(String))] : logIds,
+  );
   if (!parsed.success) return { error: "Select at least one valid entry.", success: null };
   const supabase = await createServerSupabaseClient();
   const deletedAt = new Date().toISOString();
   let deleted = 0;
+  const finish = (error: string | null = null): BulkLogActionState => {
+    revalidateLogViews(); revalidatePath("/admin");
+    return {
+      error,
+      success: deleted > 0 ? `${deleted} ${deleted === 1 ? "entry" : "entries"} moved to Deleted logs.` : null,
+    };
+  };
   for (let index = 0; index < parsed.data.length; index += 100) {
     const ids = parsed.data.slice(index, index + 100);
     const { data, error } = await supabase
@@ -125,11 +133,10 @@ export async function bulkSoftDeleteLogsAction(
       .in("id", ids)
       .is("deleted_at", null)
       .select("id");
-    if (error) return { error: error.message, success: null };
+    if (error) return finish(error.message);
     deleted += data?.length ?? 0;
   }
-  revalidateLogViews(); revalidatePath("/admin");
-  return { error: null, success: `${deleted} ${deleted === 1 ? "entry" : "entries"} moved to Deleted logs.` };
+  return deleted > 0 ? finish() : finish("The selected entries were already deleted or are no longer available.");
 }
 
 export async function restoreLogAction(formData: FormData) {
@@ -137,7 +144,7 @@ export async function restoreLogAction(formData: FormData) {
   const id = z.string().uuid().safeParse(formData.get("id"));
   if (!id.success) return;
   const supabase = await createServerSupabaseClient();
-  const { error } = await supabase.from("athlete_logs").update({ deleted_at: null, deleted_by: null }).eq("id", id.data);
+  const { error } = await supabase.from("athlete_logs").update({ deleted_at: null, deleted_by: null }).eq("id", id.data).not("deleted_at", "is", null);
   if (error) throw new Error(error.message);
   revalidateLogViews(); revalidatePath("/admin");
 }
