@@ -27,6 +27,8 @@ npm run dev
 
 Without environment variables the app opens in read-only preview mode with generated, non-roster data. Copy `.env.example` to `.env.local` and add Supabase credentials to enable authentication and persistence.
 
+The committed `.env.analytics` file is the canonical, non-secret source for tunable analysis criteria. It currently defines the stable 25y change bounds, default and allowed trend windows, and team aggregation method. Changing it requires validation and a new deployment.
+
 ## Supabase setup
 
 1. Create a Supabase project.
@@ -62,6 +64,15 @@ npm run seed:training
 
 Use `--end=YYYY-MM-DD` to choose a fixed final date. Newly created mock accounts are written to a mode-`0600`, git-ignored credential CSV. Re-running the command resets only these three group memberships and preserves logs that already exist for a mock athlete/date/session.
 
+Preview or remove all athletes created by the training-data seed:
+
+```bash
+npm run delete:mock-athletes
+npm run delete:mock-athletes -- --execute
+```
+
+The execute command writes a mode-`0600` JSON backup to `/tmp` before permanently deleting the mock entries, memberships, profiles, and login accounts.
+
 ## Verification
 
 ```bash
@@ -77,9 +88,13 @@ Import the repository into Vercel, select Node.js 22, and configure the four var
 
 ## Data rules
 
+The complete statistical and data-analysis contract is maintained in [`docs/data-analysis-rules.md`](docs/data-analysis-rules.md). Every analytics behavior or threshold change must update that file, the criteria manifest, and the related automated tests.
+
 - The device-local date is primary; manual date selection is a fallback/backfill path.
 - Session options are derived from the activity date and validated again in Postgres.
 - Missing metrics remain null and are excluded from averages.
 - Wellness uses one shared 1–10 chart with independent toggles.
 - HR zones use independently toggleable segments in each stacked daily column.
 - Daily load averages sessions within each athlete-day before team aggregation.
+- Monday and Friday 25y changes compare the same athlete, weekday, and assigned stroke with the previous available like-for-like result in the selected window.
+- Team 25y lines and changes use medians; negative time changes are improvements, positive changes are regressions, and the configured stable band is neutral.

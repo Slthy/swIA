@@ -43,7 +43,7 @@ export function createDemoLogs(endDate = new Date()): AthleteLog[] {
           makeLog(activityDate, session, {
             rpe: 6 + (seed % 4),
             fatigue: 4 + (seed % 5),
-            ...demo25yResult(activityDate, session === "friday_am_test"),
+            ...demo25yResult(activityDate, session === "friday_am_test", endDate),
             pace3x100FreestyleSeconds: 62 + ((seed * 3) % 11) * 0.42,
             kickCount: 18 + (seed % 8),
             strokeCount: 34 + (seed % 7),
@@ -67,13 +67,16 @@ export function createDemoLogs(endDate = new Date()): AthleteLog[] {
   return logs;
 }
 
-function demo25yResult(activityDate: string, isFriday: boolean): Partial<AthleteLog> {
-  const weekSeed = Math.floor(new Date(`${mondayOfWeek(activityDate)}T12:00:00Z`).getTime() / 604_800_000);
-  const strokeIndex = (((weekSeed + (isFriday ? 1 : 0)) % 4) + 4) % 4;
+function demo25yResult(activityDate: string, isFriday: boolean, endDate: Date): Partial<AthleteLog> {
+  const latestMonday = new Date(`${mondayOfWeek(toLocalISODate(endDate))}T12:00:00Z`).getTime();
+  const testMonday = new Date(`${mondayOfWeek(activityDate)}T12:00:00Z`).getTime();
+  const weeksAgo = Math.max(0, Math.round((latestMonday - testMonday) / 604_800_000));
+  const strokeIndex = weeksAgo <= 1 ? 1 : weeksAgo === 2 ? (isFriday ? 2 : 0) : 3;
   const fields = ["time25yBreaststrokeSeconds", "time25yFreestyleSeconds", "time25yFlySeconds", "time25yBackstrokeSeconds"] as const;
   const bases = [14.6, 11.5, 12.7, 13.2] as const;
-  const variation = ((((weekSeed * 3) % 9) + 9) % 9 - 4) * 0.11;
-  return { [fields[strokeIndex]]: bases[strokeIndex] + variation + (isFriday ? 0.17 : 0) };
+  const progression = weeksAgo === 0 ? -0.2 : 0;
+  const fridayEffect = isFriday ? (weeksAgo === 0 ? 0.55 : 0.1) : 0;
+  return { [fields[strokeIndex]]: bases[strokeIndex] + progression + fridayEffect };
 }
 
 function makeLog(activityDate: string, sessionKey: SessionKey, values: Partial<AthleteLog>): AthleteLog {

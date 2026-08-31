@@ -6,6 +6,8 @@ import { SessionEffortChart } from "@/components/charts/session-effort-chart";
 import { SwimTestChart } from "@/components/charts/swim-test-chart";
 import { WellnessChart } from "@/components/charts/wellness-chart";
 
+const criteria = { stableDeltaLowerSeconds: -0.1, stableDeltaUpperSeconds: 0.1, defaultWindowWeeks: 4, windowOptionsWeeks: [4, 8, 12], teamAggregation: "median" as const };
+
 describe("chart visibility controls", () => {
   it("toggles all shared-scale wellness metrics independently", () => {
     render(<WellnessChart data={[{ date: "2026-08-28", soreness: 4, academicStress: 5, nutrition: 8 }]} />);
@@ -36,9 +38,17 @@ describe("chart visibility controls", () => {
     ]} daily3x100={[
       { date: "2026-08-24", day: "Monday", paceSeconds: 64, athleteCount: 1 },
       { date: "2026-08-28", day: "Friday", paceSeconds: 63, athleteCount: 1 },
-    ]} />);
+    ]} weekly25y={{ scope: "team", athleteWeeks: [], teamWeeks: [{ weekStart: "2026-08-24", stroke: "freestyle", mondayTimeSeconds: 11, fridayTimeSeconds: null, mondayDeltaSeconds: null, fridayDeltaSeconds: null, mondayKickCount: 20, fridayKickCount: null, mondayStrokeCount: 32, fridayStrokeCount: null, mondayAthleteCount: 1, fridayAthleteCount: 0, comparableAthleteCount: 0, flaggedAthleteCount: 0, context: { averagePracticeRpe: null, averagePracticeFatigue: null, fridaySleepHours: null, fridaySoreness: null, sleepChange: null, sorenessChange: null } }] }} criteria={criteria} />);
     const friday = screen.getByRole("button", { name: "Friday" });
     const breaststroke = screen.getByRole("button", { name: "25y stroke filter: Breaststroke" });
+    const strokeCount = screen.getByRole("button", { name: "Stroke count" });
+    const kickCount = screen.getByRole("button", { name: "Kick count" });
+    expect(strokeCount).toHaveAttribute("aria-pressed", "false");
+    expect(kickCount).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(strokeCount);
+    fireEvent.click(kickCount);
+    expect(strokeCount).toHaveAttribute("aria-pressed", "true");
+    expect(kickCount).toHaveAttribute("aria-pressed", "true");
     expect(friday).toHaveAttribute("aria-pressed", "true");
     expect(breaststroke).toHaveAttribute("aria-pressed", "true");
     fireEvent.click(friday);

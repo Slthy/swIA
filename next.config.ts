@@ -1,4 +1,7 @@
 import type { NextConfig } from "next";
+import { loadAnalyticsEnvironment } from "./analytics-env";
+
+loadAnalyticsEnvironment();
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,

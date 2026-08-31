@@ -69,6 +69,7 @@ describe("admin selection controls", () => {
     expect(screen.getByLabelText("New password for Athlete One")).toHaveAttribute("pattern", "[0-9]{6}");
     fireEvent.click(deleteButton);
     await waitFor(() => expect(mocks.deleteAccounts).toHaveBeenCalledWith([athleteId]));
+    expect(window.confirm).toHaveBeenCalledWith(expect.stringContaining("entries and training-group assignments will also be permanently deleted"));
     expect(await screen.findByText("1 account deleted.")).toBeInTheDocument();
   });
 

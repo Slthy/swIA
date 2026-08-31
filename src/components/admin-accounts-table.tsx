@@ -30,7 +30,12 @@ export function AdminAccountsTable({ accounts, currentAccountId }: { accounts: P
   const deleteSelected = () => {
     const ids = [...selected];
     if (!ids.length || pending) return;
-    if (!window.confirm(`Permanently delete ${ids.length} selected ${ids.length === 1 ? "account" : "accounts"}? Login access cannot be restored; historical records will be retained.`)) return;
+    const selectedAccounts = accounts.filter((account) => selected.has(account.id));
+    const athleteCount = selectedAccounts.filter((account) => account.role === "athlete").length;
+    const athleteWarning = athleteCount
+      ? ` ${athleteCount === 1 ? "The athlete's" : `All ${athleteCount} athletes'`} entries and training-group assignments will also be permanently deleted.`
+      : "";
+    if (!window.confirm(`Permanently delete ${ids.length} selected ${ids.length === 1 ? "account" : "accounts"}?${athleteWarning} Login access cannot be restored.`)) return;
     setState(initialState);
     startTransition(async () => {
       try {
@@ -68,6 +73,6 @@ export function AdminAccountsTable({ accounts, currentAccountId }: { accounts: P
         </div>
       </div>;
     })}</div>
-    <div className="flex gap-3 border-t border-[#e5ecef] bg-[#fffaf0] px-5 py-4 text-xs leading-5 text-[#705a32]"><ShieldAlert className="mt-0.5 size-4 shrink-0" /><p>Account deletion revokes authentication permanently and removes group membership. Historical entries and audit attribution remain intact.</p></div>
+    <div className="flex gap-3 border-t border-[#e5ecef] bg-[#fffaf0] px-5 py-4 text-xs leading-5 text-[#705a32]"><ShieldAlert className="mt-0.5 size-4 shrink-0" /><p>Deleting an athlete permanently removes their entries and group assignments. Staff-account deletion revokes access while retaining historical attribution.</p></div>
   </Card>;
 }

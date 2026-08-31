@@ -7,7 +7,7 @@ const groups = [{ id: "00000000-0000-4000-8000-000000000002", name: "Sprint", co
 
 describe("dashboard timeframe filters", () => {
   it("reveals and constrains custom dates immediately", () => {
-    render(<DashboardFilters athletes={athletes} groups={groups} values={{ scope: "all", range: "month", from: "2026-07-30", to: "2026-08-28" }} />);
+    render(<DashboardFilters athletes={athletes} groups={groups} windowOptionsWeeks={[4, 8, 12]} values={{ subject: "team", segment: "all", range: "4w", from: "2026-07-30", to: "2026-08-28" }} />);
     expect(screen.queryByLabelText("From")).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Timeframe"), { target: { value: "custom" } });
     const from = screen.getByLabelText("From");
@@ -18,9 +18,12 @@ describe("dashboard timeframe filters", () => {
     expect(to).toHaveAttribute("min", "2026-07-30");
   });
 
-  it("reveals category selection without a preliminary submit", () => {
-    render(<DashboardFilters athletes={athletes} groups={groups} values={{ scope: "all", range: "month" }} />);
-    fireEvent.change(screen.getByLabelText("View"), { target: { value: "group" } });
-    expect(screen.getByLabelText("Category")).toHaveTextContent("Sprint");
+  it("switches the whole dashboard between team and individual subjects", () => {
+    render(<DashboardFilters athletes={athletes} groups={groups} windowOptionsWeeks={[4, 8, 12]} values={{ subject: "team", segment: "all", range: "4w" }} />);
+    expect(screen.getByLabelText("Trend subject")).toHaveTextContent("General team trends");
+    expect(screen.getByLabelText("Team segment")).toHaveTextContent("Sprint");
+    fireEvent.change(screen.getByLabelText("Trend subject"), { target: { value: athletes[0].id } });
+    expect(screen.queryByLabelText("Team segment")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Trend subject")).toHaveValue(athletes[0].id);
   });
 });

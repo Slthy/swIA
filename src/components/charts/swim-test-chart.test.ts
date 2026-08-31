@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { buildSecondsDomain, formatSecondsTick } from "@/components/charts/swim-test-chart";
+import { buildDeltaDomain, buildSecondsDomain, formatSecondsTick } from "@/components/charts/swim-test-chart";
+
+const criteria = { stableDeltaLowerSeconds: -0.1, stableDeltaUpperSeconds: 0.1, defaultWindowWeeks: 4, windowOptionsWeeks: [4, 8, 12], teamAggregation: "median" as const };
 
 describe("swim-test chart axes", () => {
   it("pads a flat series instead of exposing floating-point sentinel-looking ticks", () => {
@@ -10,5 +12,10 @@ describe("swim-test chart axes", () => {
   it("formats seconds without binary floating-point noise", () => {
     expect(formatSecondsTick(9.999999)).toBe("10");
     expect(formatSecondsTick(67.080001)).toBe("67.08");
+  });
+
+  it("keeps improvement and regression deltas symmetric around zero", () => {
+    expect(buildDeltaDomain([-0.2, 0.5], criteria)).toEqual([-0.6, 0.6]);
+    expect(buildDeltaDomain([], criteria)).toEqual([-0.12, 0.12]);
   });
 });

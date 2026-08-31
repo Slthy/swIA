@@ -14,5 +14,6 @@ describe("demo dashboard data", () => {
     expect(data.daily25y.every((point) => point.timeSeconds > 0 && point.kickCount !== null && point.strokeCount !== null)).toBe(true);
     expect(data.daily3x100.length).toBeGreaterThan(0);
     expect(data.daily3x100.every((point) => point.paceSeconds > 0)).toBe(true);
+    expect(data.weekly25y.athleteWeeks.some((week) => week.possibleRecoveryMismatch)).toBe(true);
   });
 });

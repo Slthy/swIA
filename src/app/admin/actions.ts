@@ -120,6 +120,30 @@ export async function deleteAccountsAction(
     };
   };
   for (const target of targets) {
+    if (target.role === "athlete") {
+      const { error: logError } = await admin.from("athlete_logs").delete().eq("athlete_id", target.id);
+      if (logError) return finish(`Could not delete ${target.username}'s entries: ${logError.message}`);
+
+      const { error: membershipError } = await admin.from("group_memberships").delete().eq("athlete_id", target.id);
+      if (membershipError) return finish(`The entries were deleted, but ${target.username}'s training-group assignments could not be cleared: ${membershipError.message}`);
+
+      const { error: auditError } = await admin.from("audit_events").update({ actor_id: null }).eq("actor_id", target.id);
+      if (auditError) return finish(`The athlete data was cleared, but ${target.username}'s audit attribution could not be anonymized: ${auditError.message}`);
+
+      const { error: authError } = await admin.auth.admin.deleteUser(target.id);
+      if (authError) return finish(`The athlete data was cleared, but ${target.username}'s login could not be deleted: ${authError.message}`);
+
+      await admin.from("audit_events").insert({
+        actor_id: actor.id,
+        action: "account.deleted",
+        entity_type: "profile",
+        entity_id: target.id,
+        metadata: { role: target.role, username: target.username, entries_deleted: true },
+      });
+      deleted += 1;
+      continue;
+    }
+
     const deletedAt = new Date().toISOString();
     const tombstoneUsername = `deleted.${target.id.replaceAll("-", "")}`;
     const { error: markError } = await admin.from("profiles").update({
@@ -143,12 +167,6 @@ export async function deleteAccountsAction(
       metadata: { role: target.role, username: target.username },
     });
     deleted += 1;
-    if (target.role === "athlete") {
-      const { error: membershipError } = await admin.from("group_memberships").delete().eq("athlete_id", target.id);
-      if (membershipError) {
-        return finish(`The account was deleted, but its training-group assignment could not be cleared: ${membershipError.message}`);
-      }
-    }
   }
   return finish();
 }

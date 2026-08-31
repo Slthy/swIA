@@ -53,10 +53,14 @@ describe("training data seed", () => {
       const key = `${test.athlete_id}:${mondayOfWeek(test.activity_date)}`;
       byAthleteWeek.set(key, [...(byAthleteWeek.get(key) ?? []), test]);
     }
+    let matchingWeeks = 0;
+    let independentWeeks = 0;
     for (const pair of byAthleteWeek.values().filter((items) => items.length === 2)) {
       const strokeIndexes = pair.map((test) => [test.time_25y_breaststroke_seconds, test.time_25y_freestyle_seconds, test.time_25y_fly_seconds, test.time_25y_backstroke_seconds].findIndex((value) => value !== null));
-      expect(strokeIndexes[0]).not.toBe(strokeIndexes[1]);
+      if (strokeIndexes[0] === strokeIndexes[1]) matchingWeeks += 1; else independentWeeks += 1;
     }
+    expect(matchingWeeks).toBeGreaterThan(0);
+    expect(independentWeeks).toBeGreaterThan(0);
     expect(new Set(tests.map((test) => test.pace_3x100_freestyle_seconds)).size).toBeGreaterThanOrEqual(20);
     expect(new Set(logs.flatMap((entry) => entry.rpe === null ? [] : [entry.rpe])).size).toBeGreaterThanOrEqual(5);
     expect(new Set(logs.flatMap((entry) => entry.fatigue === null ? [] : [entry.fatigue])).size).toBeGreaterThanOrEqual(5);

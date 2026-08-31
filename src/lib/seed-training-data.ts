@@ -107,7 +107,7 @@ export function generateTrainingSeedLogs(
       });
 
       for (const sessionKey of sessionsForDate(activityDate).filter((session) => session !== "daily_wellness")) {
-        rows.push(makeSessionRow(athlete, actorId, activityDate, sessionKey, variation));
+        rows.push(makeSessionRow(athlete, actorId, activityDate, sessionKey, variation, endDate));
       }
     }
   }
@@ -120,6 +120,7 @@ function makeSessionRow(
   activityDate: string,
   sessionKey: Exclude<SessionKey, "daily_wellness">,
   variation: number,
+  endDate: Date,
 ): TrainingSeedLogRow {
   const isMondayTest = sessionKey === "monday_am_test";
   const isFridayTest = sessionKey === "friday_am_test";
@@ -132,10 +133,16 @@ function makeSessionRow(
 
   if (isTest) {
     const weekSeed = Math.floor(new Date(`${mondayOfWeek(activityDate)}T12:00:00Z`).getTime() / 604_800_000);
-    const weeklyVariation = (positiveModulo(weekSeed * 3 + athlete.athleteIndex * 2, 9) - 4) * 0.09;
-    const strokeIndex = positiveModulo(weekSeed + athlete.athleteIndex + (isFridayTest ? 1 : 0), 4);
+    const latestMonday = new Date(`${mondayOfWeek(toLocalISODate(endDate))}T12:00:00Z`).getTime();
+    const testMonday = new Date(`${mondayOfWeek(activityDate)}T12:00:00Z`).getTime();
+    const weeksAgo = Math.max(0, Math.round((latestMonday - testMonday) / 604_800_000));
+    const progression = -Math.max(0, 3 - Math.min(weeksAgo, 3)) * 0.12;
+    const weeklyVariation = (positiveModulo(weekSeed + athlete.athleteIndex * 2, 5) - 2) * 0.025;
+    const baseStrokeIndex = athlete.athleteIndex % 4;
+    const strokeIndex = athlete.athleteIndex % 5 === 4 && isFridayTest ? (baseStrokeIndex + 1) % 4 : baseStrokeIndex;
     const strokeOffsets = [3.1, 0, 1.2, 1.8] as const;
-    const test25 = profile.time25y + weeklyVariation + athlete.athleteIndex * 0.015 + strokeOffsets[strokeIndex] + (isFridayTest ? 0.17 : 0);
+    const fridayEffect = isFridayTest ? (athlete.athleteIndex % 5 === 0 && weeksAgo === 0 ? 0.5 : 0.14) : 0;
+    const test25 = profile.time25y + progression + weeklyVariation + athlete.athleteIndex * 0.015 + strokeOffsets[strokeIndex] + fridayEffect;
     if (strokeIndex === 0) row.time_25y_breaststroke_seconds = round(test25);
     if (strokeIndex === 1) row.time_25y_freestyle_seconds = round(test25);
     if (strokeIndex === 2) row.time_25y_fly_seconds = round(test25);
@@ -146,8 +153,8 @@ function makeSessionRow(
     row.pace_3x100_freestyle_seconds = round(freestylePace + (isFridayTest
       ? paceDeltas[positiveModulo(weekSeed + athlete.athleteIndex * 2, paceDeltas.length)]
       : 0));
-    row.kick_count = 20 + athlete.athleteIndex % 6 + variation;
-    row.stroke_count = 32 + athlete.athleteIndex % 7 + variation;
+    row.kick_count = 20 + athlete.athleteIndex % 6 + variation + (isFridayTest && weeksAgo === 0 ? 1 : 0);
+    row.stroke_count = 32 + athlete.athleteIndex % 7 + variation + (isFridayTest && weeksAgo === 0 ? 2 : 0);
   } else if (!sessionKey.includes("lift")) {
     const multiplier = sessionKey.includes("pm") ? 1.08 : 1;
     [row.zone1_minutes, row.zone2_minutes, row.zone3_minutes, row.zone4_minutes, row.zone5_minutes] =

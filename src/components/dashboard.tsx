@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/card";
 import type { DashboardData } from "@/lib/types";
 import { formatNumber } from "@/lib/utils";
 
-export function Dashboard({ data, compact = false }: { data: DashboardData; compact?: boolean }) {
+export function Dashboard({ data, compact = false, staffDrilldownQuery }: { data: DashboardData; compact?: boolean; staffDrilldownQuery?: string }) {
   const cards = [
     ["Days tracked", String(data.summary.daysTracked), "activity dates", CalendarDays, "#0a304a"],
     ["Avg soreness", formatNumber(data.summary.avgSoreness), "/ 10", Activity, "#ef6a67"],
@@ -27,7 +27,7 @@ export function Dashboard({ data, compact = false }: { data: DashboardData; comp
       <div className="grid gap-5 xl:grid-cols-2"><WellnessChart data={data.wellness} /><SessionEffortChart data={data.effort} /></div>
       {!compact && <RecoveryChart data={data.recovery} />}
       <HrZoneChart data={data.zones} />
-      {!compact && <SwimTestChart daily25y={data.daily25y} daily3x100={data.daily3x100} />}
+      {!compact && <SwimTestChart daily25y={data.daily25y} daily3x100={data.daily3x100} weekly25y={data.weekly25y} criteria={data.analyticsCriteria} staffDrilldownQuery={staffDrilldownQuery} />}
     </div>
   );
 }

@@ -3,6 +3,7 @@ node_modules/
 coverage/
 .env*
 !.env.example
+!.env.analytics
 *.tsbuildinfo
 credentials-*.csv
 credentials-*.html

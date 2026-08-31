@@ -96,7 +96,11 @@ async function main() {
 
   const groupIds = new Map(groups.map((group) => [group.name, group.id]));
   const categoryIds = [...groupIds.values()];
-  const { error: membershipDeleteError } = await supabase.from("group_memberships").delete().in("group_id", categoryIds);
+  const { error: membershipDeleteError } = await supabase
+    .from("group_memberships")
+    .delete()
+    .in("group_id", categoryIds)
+    .in("athlete_id", mockAthletes.map((athlete) => athlete.id));
   if (membershipDeleteError) throw membershipDeleteError;
   const { error: membershipError } = await supabase.from("group_memberships").insert(
     mockAthletes.map((athlete) => ({ group_id: groupIds.get(athlete.group)!, athlete_id: athlete.id })),
@@ -114,9 +118,9 @@ async function main() {
     }
   }
 
-  const verification = await verifyReplacement(supabase, mockAthletes, groups, startDate, endDateISO, matchingLegacyLogs.map((log) => log.id));
+  const verification = await verifyReplacement(supabase, mockAthletes, groups, mockLogs, startDate, endDateISO, matchingLegacyLogs.map((log) => log.id));
   process.stdout.write(`Replacement complete: ${verification.memberships} mock memberships, ${verification.mockLogs} mock logs, and ${verification.genderRosters} gender rosters verified.\n`);
-  process.stdout.write(`${verification.testRows} daily test rows verified across ${verification.assigned25yStrokes} assigned 25y strokes; ${verification.differentStrokeWeeks} complete weeks use independent Monday/Friday strokes.\n`);
+  process.stdout.write(`${verification.testRows} daily test rows verified across ${verification.assigned25yStrokes} assigned 25y strokes; ${verification.matchingStrokeWeeks} complete weeks support like-stroke progression and ${verification.differentStrokeWeeks} demonstrate independent assignment.\n`);
   process.stdout.write(`${verification.freestyle3x100Rows} freestyle-only 3×100 results verified; non-freestyle pace fields are empty.\n`);
   process.stdout.write(`${matchingLegacyLogs.length} matching real-athlete seed logs were removed; ${storedLegacyLogs.length - matchingLegacyLogs.length} non-matching rows were preserved.\n`);
   process.stdout.write(`${inserted} mock logs were newly inserted; ${mockLogs.length - inserted} existing identities were found before the test refresh.\n`);
@@ -348,6 +352,7 @@ async function verifyReplacement(
   supabase: SupabaseClient,
   athletes: AssignedSeedAthlete[],
   groups: Array<{ id: string; name: TrainingGroupName }>,
+  expectedLogs: TrainingSeedLogRow[],
   startDate: string,
   endDate: string,
   removedIds: string[],
@@ -365,14 +370,14 @@ async function verifyReplacement(
   if (logError) throw logError;
   if (genderError) throw genderError;
   if (memberships !== 15) throw new Error(`Expected 15 mock memberships, found ${memberships ?? 0}.`);
-  if (mockLogs !== 1230) throw new Error(`Expected 1230 mock logs, found ${mockLogs ?? 0}.`);
+  if (mockLogs !== expectedLogs.length) throw new Error(`Expected ${expectedLogs.length} mock logs, found ${mockLogs ?? 0}.`);
   const expectedCategoryById = new Map(
     athletes.map((athlete) => [athlete.id, MOCK_TRAINING_ATHLETES[athlete.athleteIndex].teamCategory]),
   );
   if (genderRosters?.length !== 15 || genderRosters.some((athlete) => expectedCategoryById.get(athlete.user_id) !== athlete.team_category)) {
     throw new Error("The 15 mock gender rosters do not match the deterministic seed plan.");
   }
-  const testVerification = await verifyMockTestRows(supabase, athletes, startDate, endDate);
+  const testVerification = await verifyMockTestRows(supabase, athletes, expectedLogs, startDate, endDate);
   for (let index = 0; index < removedIds.length; index += 200) {
     const { count, error } = await supabase.from("athlete_logs").select("*", { count: "exact", head: true }).in("id", removedIds.slice(index, index + 200));
     if (error) throw error;
@@ -398,6 +403,7 @@ const nonFreestyle3x100Fields = [
 async function verifyMockTestRows(
   supabase: SupabaseClient,
   athletes: AssignedSeedAthlete[],
+  expectedLogs: TrainingSeedLogRow[],
   startDate: string,
   endDate: string,
 ) {
@@ -410,7 +416,8 @@ async function verifyMockTestRows(
     .lte("activity_date", endDate)
     .is("deleted_at", null);
   if (error) throw error;
-  if (data?.length !== 135) throw new Error(`Expected 135 mock swim-test rows, found ${data?.length ?? 0}.`);
+  const expectedTests = expectedLogs.filter((log) => log.session_key === "monday_am_test" || log.session_key === "friday_am_test");
+  if (data?.length !== expectedTests.length) throw new Error(`Expected ${expectedTests.length} mock swim-test rows, found ${data?.length ?? 0}.`);
 
   const byAthleteWeek = new Map<string, Array<{ session: string; stroke: string }>>();
   const assignedStrokes = new Set<string>();
@@ -453,14 +460,25 @@ async function verifyMockTestRows(
   }
 
   let completeWeeks = 0;
+  let matchingStrokeWeeks = 0;
+  let differentStrokeWeeks = 0;
   for (const week of byAthleteWeek.values()) {
     const monday = week.find((test) => test.session === "monday_am_test");
     const friday = week.find((test) => test.session === "friday_am_test");
     if (!monday || !friday) continue;
     completeWeeks += 1;
-    if (monday.stroke === friday.stroke) throw new Error("A mock Monday–Friday pair must demonstrate independent 25y stroke assignment.");
+    if (monday.stroke === friday.stroke) matchingStrokeWeeks += 1; else differentStrokeWeeks += 1;
   }
-  if (completeWeeks !== 60) throw new Error(`Expected 60 complete mock test weeks, found ${completeWeeks}.`);
+  const expectedTestsByAthleteWeek = new Map<string, Set<string>>();
+  for (const row of expectedTests) {
+    const key = `${row.athlete_id}:${mondayOfWeek(row.activity_date)}`;
+    const sessions = expectedTestsByAthleteWeek.get(key) ?? new Set<string>();
+    sessions.add(row.session_key);
+    expectedTestsByAthleteWeek.set(key, sessions);
+  }
+  const expectedCompleteWeeks = [...expectedTestsByAthleteWeek.values()].filter((sessions) => sessions.has("monday_am_test") && sessions.has("friday_am_test")).length;
+  if (completeWeeks !== expectedCompleteWeeks) throw new Error(`Expected ${expectedCompleteWeeks} complete mock test weeks, found ${completeWeeks}.`);
+  if (!matchingStrokeWeeks || !differentStrokeWeeks) throw new Error("Mock tests must contain both like-stroke progression weeks and independent Monday/Friday stroke weeks.");
   if (assignedStrokes.size !== specific25yFields.length) {
     throw new Error(`Expected all four assigned 25y strokes, found ${assignedStrokes.size}.`);
   }
@@ -470,7 +488,8 @@ async function verifyMockTestRows(
   return {
     testRows: data?.length ?? 0,
     assigned25yStrokes: assignedStrokes.size,
-    differentStrokeWeeks: completeWeeks,
+    matchingStrokeWeeks,
+    differentStrokeWeeks,
     freestyle3x100Rows: data?.length ?? 0,
   };
 }

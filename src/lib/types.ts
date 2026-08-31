@@ -128,6 +128,74 @@ export interface Daily3x100Point {
   athleteCount: number;
 }
 
+export type AnalyticsScope = "team" | "individual";
+export type DeltaClassification = "faster" | "stable" | "slower";
+export type ProgressionStroke = Exclude<SwimStroke, "im">;
+
+export interface PublicAnalyticsCriteria {
+  stableDeltaLowerSeconds: number;
+  stableDeltaUpperSeconds: number;
+  defaultWindowWeeks: number;
+  windowOptionsWeeks: number[];
+  teamAggregation: "median";
+}
+
+export interface WeeklyRecoveryContext {
+  averagePracticeRpe: number | null;
+  averagePracticeFatigue: number | null;
+  fridaySleepHours: number | null;
+  fridaySoreness: number | null;
+  sleepChange: number | null;
+  sorenessChange: number | null;
+}
+
+export interface Comparable25yMeasurement {
+  date: string;
+  timeSeconds: number;
+  kickCount: number | null;
+  strokeCount: number | null;
+  previousDate: string | null;
+  previousTimeSeconds: number | null;
+  deltaSeconds: number | null;
+  classification: DeltaClassification | null;
+}
+
+export interface Athlete25yWeek {
+  weekStart: string;
+  athleteId: string;
+  athleteName: string;
+  stroke: ProgressionStroke;
+  monday: Comparable25yMeasurement | null;
+  friday: Comparable25yMeasurement | null;
+  fridayMinusMondaySeconds: number | null;
+  possibleRecoveryMismatch: boolean;
+  context: WeeklyRecoveryContext;
+}
+
+export interface Team25yWeek {
+  weekStart: string;
+  stroke: ProgressionStroke;
+  mondayTimeSeconds: number | null;
+  fridayTimeSeconds: number | null;
+  mondayDeltaSeconds: number | null;
+  fridayDeltaSeconds: number | null;
+  mondayKickCount: number | null;
+  fridayKickCount: number | null;
+  mondayStrokeCount: number | null;
+  fridayStrokeCount: number | null;
+  mondayAthleteCount: number;
+  fridayAthleteCount: number;
+  comparableAthleteCount: number;
+  flaggedAthleteCount: number;
+  context: WeeklyRecoveryContext;
+}
+
+export interface Weekly25yProgression {
+  scope: AnalyticsScope;
+  athleteWeeks: Athlete25yWeek[];
+  teamWeeks: Team25yWeek[];
+}
+
 export interface FatiguePoint {
   date: string;
   sessionKey: SessionKey;
@@ -149,6 +217,8 @@ export interface DashboardData {
   zones: ZonePoint[];
   daily25y: Daily25yPoint[];
   daily3x100: Daily3x100Point[];
+  weekly25y: Weekly25yProgression;
+  analyticsCriteria: PublicAnalyticsCriteria;
   fatigue: FatiguePoint[];
   effort: SessionEffortPoint[];
 }

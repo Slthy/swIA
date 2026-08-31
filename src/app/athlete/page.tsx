@@ -11,7 +11,7 @@ import { getAppProfileForRole } from "@/lib/session";
 export default async function AthleteHomePage() {
   const profile = await getAppProfileForRole(["athlete"], "athlete");
   const logs = await getLogs(profile);
-  const dashboard = buildDashboardData(logs);
+  const dashboard = buildDashboardData(logs, { scope: "individual" });
   return <div className="space-y-7">
     <section className="relative overflow-hidden rounded-[1.6rem] bg-[#0a304a] px-6 py-7 text-white sm:px-8 sm:py-9">
       <div className="fine-grid absolute inset-0 opacity-50" />

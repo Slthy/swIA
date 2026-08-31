@@ -1,5 +1,8 @@
 import { defineConfig } from "vitest/config";
 import path from "node:path";
+import { loadAnalyticsEnvironment } from "./analytics-env";
+
+loadAnalyticsEnvironment();
 
 export default defineConfig({
   esbuild: { jsx: "automatic" },
