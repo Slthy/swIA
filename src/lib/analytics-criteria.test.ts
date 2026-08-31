@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import nextConfig from "../../next.config";
 import { ANALYTICS_RULE_IDS, getAnalyticsCriteria, parseAnalyticsCriteria } from "@/lib/analytics-criteria";
 
 const validEnvironment = {
@@ -20,6 +21,10 @@ describe("analytics criteria", () => {
       windowOptionsWeeks: [4, 8, 12],
       teamAggregation: "median",
     });
+  });
+
+  it("embeds every non-secret analytics value for the deployed server runtime", () => {
+    expect(nextConfig.env).toMatchObject(validEnvironment);
   });
 
   it("rejects invalid stable bounds and unsupported defaults", () => {

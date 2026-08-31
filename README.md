@@ -27,7 +27,7 @@ npm run dev
 
 Without environment variables the app opens in read-only preview mode with generated, non-roster data. Copy `.env.example` to `.env.local` and add Supabase credentials to enable authentication and persistence.
 
-The committed `.env.analytics` file is the canonical, non-secret source for tunable analysis criteria. It currently defines the stable 25y change bounds, default and allowed trend windows, and team aggregation method. Changing it requires validation and a new deployment.
+The committed `.env.analytics` file is the canonical, non-secret source for tunable analysis criteria. It currently defines the stable 25y change bounds, default and allowed trend windows, and team aggregation method. The values are embedded into the server bundle during `next build` so Vercel functions receive the same criteria. Changing the file requires validation and a new deployment.
 
 ## Supabase setup
 

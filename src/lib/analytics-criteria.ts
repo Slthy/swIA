@@ -80,5 +80,12 @@ export function parseAnalyticsCriteria(environment: Record<string, string | unde
 }
 
 export function getAnalyticsCriteria(): AnalyticsCriteria {
-  return parseAnalyticsCriteria(process.env);
+  // Direct accesses let Next.js replace these non-secret values at build time.
+  return parseAnalyticsCriteria({
+    ANALYTICS_25Y_STABLE_DELTA_LOWER_SECONDS: process.env.ANALYTICS_25Y_STABLE_DELTA_LOWER_SECONDS,
+    ANALYTICS_25Y_STABLE_DELTA_UPPER_SECONDS: process.env.ANALYTICS_25Y_STABLE_DELTA_UPPER_SECONDS,
+    ANALYTICS_25Y_DEFAULT_WINDOW_WEEKS: process.env.ANALYTICS_25Y_DEFAULT_WINDOW_WEEKS,
+    ANALYTICS_25Y_WINDOW_OPTIONS_WEEKS: process.env.ANALYTICS_25Y_WINDOW_OPTIONS_WEEKS,
+    ANALYTICS_25Y_TEAM_AGGREGATION: process.env.ANALYTICS_25Y_TEAM_AGGREGATION,
+  });
 }
