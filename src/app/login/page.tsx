@@ -7,7 +7,7 @@ import { hasSupabaseEnvironment } from "@/lib/env";
 export default function LoginPage() {
   const configured = hasSupabaseEnvironment();
   return (
-    <main className="grid min-h-screen lg:grid-cols-[1.05fr_.95fr]">
+    <main className="grid min-h-screen min-h-dvh lg:grid-cols-[1.05fr_.95fr]">
       <section className="fine-grid relative hidden overflow-hidden bg-[#082a40] px-12 py-10 text-white lg:flex lg:flex-col">
         <Logo inverse />
         <div className="my-auto max-w-xl py-16">
@@ -23,7 +23,7 @@ export default function LoginPage() {
         </div>
         <p className="text-xs text-white/40">GW SwimTrack · Private team application</p>
       </section>
-      <section className="flex min-h-screen items-center justify-center p-6 sm:p-10">
+      <section className="safe-screen flex items-center justify-center">
         <div className="w-full max-w-md">
           <div className="mb-12 lg:hidden"><Logo /></div>
           <p className="text-sm font-bold uppercase tracking-[.16em] text-[#8d7448]">Welcome back</p>

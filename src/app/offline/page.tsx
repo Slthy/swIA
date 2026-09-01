@@ -4,7 +4,7 @@ import { Logo } from "@/components/logo";
 
 export default function OfflinePage() {
   return (
-    <main className="grid min-h-screen place-items-center p-6">
+    <main className="safe-screen grid place-items-center">
       <div className="surface-card max-w-md p-8 text-center">
         <div className="mb-8 flex justify-center"><Logo /></div>
         <WifiOff className="mx-auto mb-4 size-10 text-[#8d7448]" />
