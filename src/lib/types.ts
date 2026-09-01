@@ -209,6 +209,22 @@ export interface SessionEffortPoint {
   fatigue: number | null;
 }
 
+export interface EffortOutlierMetric {
+  athleteValue: number;
+  peerMedian: number;
+  difference: number;
+  peerCount: number;
+}
+
+export interface EffortOutlier {
+  date: string;
+  sessionKey: SessionKey;
+  athleteId: string;
+  athleteName: string;
+  rpe: EffortOutlierMetric | null;
+  fatigue: EffortOutlierMetric | null;
+}
+
 export interface DashboardData {
   summary: DashboardSummary;
   wellness: WellnessPoint[];
@@ -221,4 +237,5 @@ export interface DashboardData {
   analyticsCriteria: PublicAnalyticsCriteria;
   fatigue: FatiguePoint[];
   effort: SessionEffortPoint[];
+  effortOutliers: EffortOutlier[];
 }

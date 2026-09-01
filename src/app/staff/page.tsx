@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { subDays } from "date-fns";
+import { parseISO, subDays } from "date-fns";
 import { ArrowUpRight, Users } from "lucide-react";
 import { Dashboard } from "@/components/dashboard";
 import { DashboardFilters } from "@/components/dashboard-filters";
@@ -10,7 +10,9 @@ import { getAthletes, getGroups, getLogs } from "@/lib/data";
 import { toLocalISODate } from "@/lib/dates";
 import { getAppProfileForRole } from "@/lib/session";
 
-interface StaffSearch { subject?: string; segment?: string; scope?: string; athlete?: string; group?: string; range?: string; from?: string; to?: string }
+interface StaffSearch { subject?: string; segment?: string; scope?: string; athlete?: string; group?: string; range?: string; from?: string; to?: string; outlierDays?: string }
+
+const outlierWindowOptions = [7, 14, 28, 56];
 
 export default async function StaffDashboardPage({ searchParams }: { searchParams: Promise<StaffSearch> }) {
   const profile = await getAppProfileForRole(["coach", "admin"], "staff");
@@ -36,9 +38,16 @@ export default async function StaffDashboardPage({ searchParams }: { searchParam
   const eligibleIds = new Set(subject !== "team" ? [subject] : selectedGroup ? selectedGroup.athleteIds : segment === "men" || segment === "women" ? athletes.filter((athlete) => athlete.teamCategory === segment).map((athlete) => athlete.id) : athletes.map((athlete) => athlete.id));
   const progressionHistory = allLogs.filter((log) => eligibleIds.has(log.athleteId));
   const logs = progressionHistory.filter((log) => (!from || log.activityDate >= from) && (!to || log.activityDate <= to));
-  const data = buildDashboardData(logs, { scope: subject === "team" ? "team" : "individual", criteria, progressionHistory });
+  const requestedOutlierDays = Number(params.outlierDays);
+  const outlierDays = outlierWindowOptions.includes(requestedOutlierDays) ? requestedOutlierDays : 14;
+  const outlierTo = to ?? toLocalISODate(today);
+  const outlierFrom = toLocalISODate(subDays(parseISO(outlierTo), outlierDays - 1));
+  const effortOutlierLogs = progressionHistory.filter((log) => log.activityDate >= outlierFrom && log.activityDate <= outlierTo);
+  const data = buildDashboardData(logs, { scope: subject === "team" ? "team" : "individual", criteria, progressionHistory, effortOutlierLogs });
   const title = selectedAthlete?.displayName ?? (selectedGroup?.name ?? (segment === "men" ? "Men’s team" : segment === "women" ? "Women’s team" : "General team trends"));
   const preservedQuery = new URLSearchParams({ range });
   if (range === "custom" && from && to) { preservedQuery.set("from", from); preservedQuery.set("to", to); }
-  return <div className="space-y-6"><div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-[.68rem] font-bold uppercase tracking-[.15em] text-[#8d7448]">Staff performance view</p><h1 className="mt-2 text-3xl font-bold tracking-[-.04em] text-[#0a304a]">{title}</h1><p className="mt-2 text-sm text-[#607181]">Balanced athlete-day analytics across the selected subject and period.</p></div><Link href="/staff/log" className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#0a304a] px-4 text-sm font-semibold text-white">Log for athlete <ArrowUpRight className="size-4" /></Link></div><DashboardFilters athletes={athletes} groups={groups} windowOptionsWeeks={criteria.windowOptionsWeeks} values={{ subject, segment, range, from, to }} />{logs.length === 0 && <Card className="flex items-center gap-3 border-[#dccba8] bg-[#fffaf0] p-4 text-sm text-[#705a32]"><Users className="size-4" />No logs match these filters. Missing measurements will not be represented as zero.</Card>}<Dashboard data={data} staffDrilldownQuery={preservedQuery.toString()} /></div>;
+  const outlierPreservedFilters: Record<string, string> = { subject, segment, range };
+  if (range === "custom" && from && to) { outlierPreservedFilters.from = from; outlierPreservedFilters.to = to; }
+  return <div className="space-y-6"><div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-[.68rem] font-bold uppercase tracking-[.15em] text-[#8d7448]">Staff performance view</p><h1 className="mt-2 text-3xl font-bold tracking-[-.04em] text-[#0a304a]">{title}</h1><p className="mt-2 text-sm text-[#607181]">Balanced athlete-day analytics across the selected subject and period.</p></div><Link href="/staff/log" className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#0a304a] px-4 text-sm font-semibold text-white">Log for athlete <ArrowUpRight className="size-4" /></Link></div><DashboardFilters athletes={athletes} groups={groups} windowOptionsWeeks={criteria.windowOptionsWeeks} values={{ subject, segment, range, from, to }} />{logs.length === 0 && <Card className="flex items-center gap-3 border-[#dccba8] bg-[#fffaf0] p-4 text-sm text-[#705a32]"><Users className="size-4" />No logs match these filters. Missing measurements will not be represented as zero.</Card>}<Dashboard data={data} staffDrilldownQuery={preservedQuery.toString()} outlierWindowControl={{ days: outlierDays, options: outlierWindowOptions, preservedFilters: outlierPreservedFilters }} /></div>;
 }

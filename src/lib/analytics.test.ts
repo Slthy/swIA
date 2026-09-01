@@ -135,4 +135,33 @@ describe("dashboard aggregation", () => {
     expect(current?.mondayDeltaSeconds).toBeCloseTo(-0.2);
     expect(current?.fridayDeltaSeconds).toBeCloseTo(0.2);
   });
+
+  it("flags RPE and fatigue reports that differ from at least two session peers by two points", () => {
+    const data = buildDashboardData([
+      log("a", "2026-08-24", "a", "monday_lift", { athleteName: "Alex", rpe: 9, fatigue: 2 }),
+      log("b", "2026-08-24", "b", "monday_lift", { athleteName: "Blake", rpe: 6, fatigue: 5 }),
+      log("c", "2026-08-24", "c", "monday_lift", { athleteName: "Casey", rpe: 5, fatigue: 6 }),
+      log("d", "2026-08-24", "d", "monday_lift", { athleteName: "Drew", rpe: 6, fatigue: 5 }),
+    ]);
+
+    expect(data.effortOutliers).toEqual([
+      {
+        date: "2026-08-24",
+        sessionKey: "monday_lift",
+        athleteId: "a",
+        athleteName: "Alex",
+        rpe: { athleteValue: 9, peerMedian: 6, difference: 3, peerCount: 3 },
+        fatigue: { athleteValue: 2, peerMedian: 5, difference: -3, peerCount: 3 },
+      },
+    ]);
+  });
+
+  it("does not flag effort differences when fewer than two peers reported the metric", () => {
+    const data = buildDashboardData([
+      log("a", "2026-08-24", "a", "monday_lift", { rpe: 10, fatigue: 1 }),
+      log("b", "2026-08-24", "b", "monday_lift", { rpe: 4, fatigue: 8 }),
+    ]);
+
+    expect(data.effortOutliers).toEqual([]);
+  });
 });

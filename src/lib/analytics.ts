@@ -7,6 +7,8 @@ import type {
   Daily3x100Point,
   DashboardData,
   DashboardSummary,
+  EffortOutlier,
+  EffortOutlierMetric,
   FatiguePoint,
   LoadPoint,
   RecoveryPoint,
@@ -55,7 +57,7 @@ function groupBy<T>(items: T[], getKey: (item: T) => string): Map<string, T[]> {
 
 export function buildDashboardData(
   logs: AthleteLog[],
-  options: { scope?: AnalyticsScope; criteria?: AnalyticsCriteria; progressionHistory?: AthleteLog[] } = {},
+  options: { scope?: AnalyticsScope; criteria?: AnalyticsCriteria; progressionHistory?: AthleteLog[]; effortOutlierLogs?: AthleteLog[] } = {},
 ): DashboardData {
   const criteria = options.criteria ?? getAnalyticsCriteria();
   const sorted = [...logs].sort((a, b) => a.activityDate.localeCompare(b.activityDate));
@@ -110,6 +112,7 @@ export function buildDashboardData(
     analyticsCriteria: criteria,
     fatigue: buildFatiguePoints(sorted),
     effort: buildSessionEffortPoints(sorted),
+    effortOutliers: buildEffortOutliers(options.effortOutlierLogs ?? sorted),
   };
 }
 
@@ -357,6 +360,66 @@ function buildSessionEffortPoints(logs: AthleteLog[]): SessionEffortPoint[] {
   }));
 }
 
+const EFFORT_OUTLIER_DIFFERENCE = 2;
+const EFFORT_OUTLIER_MIN_PEERS = 2;
+
+function buildEffortOutliers(logs: AthleteLog[]): EffortOutlier[] {
+  const sessions = groupBy(
+    logs.filter((log) => log.rpe !== null || log.fatigue !== null),
+    (log) => `${log.activityDate}:${log.sessionKey}`,
+  );
+  const outliers: EffortOutlier[] = [];
+
+  for (const sessionLogs of sessions.values()) {
+    const athleteLogs = [...groupBy(sessionLogs, (log) => log.athleteId).values()].map((items) => ({
+      athleteId: items[0].athleteId,
+      athleteName: items[0].athleteName,
+      rpe: average(items.map((item) => item.rpe)),
+      fatigue: average(items.map((item) => item.fatigue)),
+    }));
+
+    for (const athlete of athleteLogs) {
+      const peers = athleteLogs.filter((item) => item.athleteId !== athlete.athleteId);
+      const rpe = compareWithPeers(athlete.rpe, peers.map((item) => item.rpe));
+      const fatigue = compareWithPeers(athlete.fatigue, peers.map((item) => item.fatigue));
+      if (!rpe && !fatigue) continue;
+      outliers.push({
+        date: sessionLogs[0].activityDate,
+        sessionKey: sessionLogs[0].sessionKey,
+        athleteId: athlete.athleteId,
+        athleteName: athlete.athleteName,
+        rpe,
+        fatigue,
+      });
+    }
+  }
+
+  return outliers.sort((left, right) => (
+    right.date.localeCompare(left.date)
+    || maximumOutlierDifference(right) - maximumOutlierDifference(left)
+    || left.athleteName.localeCompare(right.athleteName)
+  ));
+}
+
+function compareWithPeers(
+  athleteValue: number | null,
+  peerValues: Array<number | null>,
+): EffortOutlierMetric | null {
+  if (athleteValue === null) return null;
+  const validPeerValues = peerValues.filter((value): value is number => value !== null && Number.isFinite(value));
+  if (validPeerValues.length < EFFORT_OUTLIER_MIN_PEERS) return null;
+  const peerMedian = median(validPeerValues);
+  if (peerMedian === null) return null;
+  const difference = athleteValue - peerMedian;
+  return Math.abs(difference) >= EFFORT_OUTLIER_DIFFERENCE
+    ? { athleteValue, peerMedian, difference, peerCount: validPeerValues.length }
+    : null;
+}
+
+function maximumOutlierDifference(outlier: EffortOutlier): number {
+  return Math.max(Math.abs(outlier.rpe?.difference ?? 0), Math.abs(outlier.fatigue?.difference ?? 0));
+}
+
 function hasAnyZone(log: AthleteLog): boolean {
   return [log.zone1Minutes, log.zone2Minutes, log.zone3Minutes, log.zone4Minutes, log.zone5Minutes].some(
     (value) => value !== null,
@@ -367,4 +430,4 @@ function sum(values: Array<number | null>): number {
   return values.reduce<number>((total, value) => total + (value ?? 0), 0);
 }
 
-export const analyticsInternals = { average, minimum, median, classifyDelta, buildWeekly25yProgression };
+export const analyticsInternals = { average, minimum, median, classifyDelta, buildWeekly25yProgression, buildEffortOutliers };
