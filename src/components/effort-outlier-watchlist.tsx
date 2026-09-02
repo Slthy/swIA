@@ -1,6 +1,10 @@
+"use client";
+
 import Link from "next/link";
+import { useState } from "react";
 import { AlertTriangle, ArrowUpRight } from "lucide-react";
 import { formatChartDate } from "@/components/charts/chart-utils";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { SESSION_LABELS } from "@/lib/constants";
 import type { EffortOutlier, EffortOutlierMetric } from "@/lib/types";
@@ -14,7 +18,9 @@ interface OutlierWindowControl {
 }
 
 export function EffortOutlierWatchlist({ outliers, staffDrilldownQuery, windowControl }: { outliers: EffortOutlier[]; staffDrilldownQuery?: string; windowControl?: OutlierWindowControl }) {
-  const visibleOutliers = outliers.slice(0, visibleOutlierLimit);
+  const [expanded, setExpanded] = useState(false);
+  const hasHiddenOutliers = outliers.length > visibleOutlierLimit;
+  const visibleOutliers = expanded ? outliers : outliers.slice(0, visibleOutlierLimit);
   return (
     <Card className="overflow-hidden border-[#ead9b8] bg-[#fffdf8]">
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#eee3cd] px-5 py-5 sm:px-6">
@@ -57,7 +63,12 @@ export function EffortOutlierWatchlist({ outliers, staffDrilldownQuery, windowCo
               </div>
             </div>
           ))}
-          {outliers.length > visibleOutlierLimit && <p className="px-5 py-3 text-xs text-[#718491] sm:px-6">Showing the {visibleOutlierLimit} most recent signals. {outliers.length - visibleOutlierLimit} more are in this period.</p>}
+          {hasHiddenOutliers && <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 sm:px-6">
+            <p className="text-xs text-[#718491]">{expanded ? `Showing all ${outliers.length} signals in this period.` : `Showing the ${visibleOutlierLimit} most recent signals. ${outliers.length - visibleOutlierLimit} more are in this period.`}</p>
+            <Button type="button" variant="secondary" aria-expanded={expanded} onClick={() => setExpanded((value) => !value)} className="min-h-9 rounded-lg px-3 text-xs">
+              {expanded ? "Show less" : `Show all ${outliers.length}`}
+            </Button>
+          </div>}
         </div>
       )}
     </Card>
