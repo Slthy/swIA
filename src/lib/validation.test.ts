@@ -60,6 +60,22 @@ describe("log validation", () => {
     expect(result.success).toBe(false);
   });
 
+  it("accepts minute-and-second heart-rate zone durations as decimal minutes", () => {
+    const result = logInputSchema.safeParse({
+      ...context,
+      logType: "practice",
+      sessionKey: "monday_pm_swim",
+      rpe: 5,
+      fatigue: 7,
+      zone1Minutes: 37 + 40 / 60,
+      zone2Minutes: 9 + 12 / 60,
+      zone3Minutes: 8 + 52 / 60,
+      zone4Minutes: 22 + 45 / 60,
+      zone5Minutes: 5 + 11 / 60,
+    });
+    expect(result.success).toBe(true);
+  });
+
   it("rejects out-of-range wellness values", () => {
     const result = logInputSchema.safeParse({ ...context, logType: "wellness", sessionKey: "daily_wellness", soreness: 0, academicStress: 4, nutrition: 11, restingHr: null, sleepHours: null });
     expect(result.success).toBe(false);

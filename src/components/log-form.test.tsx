@@ -61,7 +61,7 @@ describe("LogForm", () => {
     })));
   });
 
-  it("converts paired hour and minute HR-zone inputs to stored minutes", async () => {
+  it("converts paired minute and second HR-zone inputs to stored decimal minutes", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-08-25T16:00:00.000Z"));
     render(<LogForm />);
@@ -69,16 +69,30 @@ describe("LogForm", () => {
     vi.useRealTimers();
 
     fireEvent.change(screen.getByRole("combobox", { name: "Available session" }), { target: { value: "tuesday_am_swim" } });
-    fireEvent.change(screen.getByRole("spinbutton", { name: "Zone 2 hours" }), { target: { value: "1" } });
-    fireEvent.change(screen.getByRole("spinbutton", { name: "Zone 2 minutes" }), { target: { value: "15" } });
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Zone 1 minutes" }), { target: { value: "37" } });
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Zone 1 seconds" }), { target: { value: "40" } });
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Zone 2 minutes" }), { target: { value: "9" } });
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Zone 2 seconds" }), { target: { value: "12" } });
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Zone 3 minutes" }), { target: { value: "8" } });
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Zone 3 seconds" }), { target: { value: "52" } });
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Zone 4 minutes" }), { target: { value: "22" } });
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Zone 4 seconds" }), { target: { value: "45" } });
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Zone 5 minutes" }), { target: { value: "5" } });
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Zone 5 seconds" }), { target: { value: "11" } });
     fireEvent.click(screen.getByRole("button", { name: "Save entry" }));
 
-    await waitFor(() => expect(mocks.saveLog).toHaveBeenCalledWith(expect.objectContaining({ zone2Minutes: 75 })));
+    await waitFor(() => expect(mocks.saveLog).toHaveBeenCalledWith(expect.objectContaining({
+      zone1Minutes: 37 + 40 / 60,
+      zone2Minutes: 9.2,
+      zone3Minutes: 8 + 52 / 60,
+      zone4Minutes: 22.75,
+      zone5Minutes: 5 + 11 / 60,
+    })));
   });
 
   it("keeps empty paired durations optional", () => {
     expect(durationInMinutes("", "")).toBeNull();
-    expect(durationInMinutes("2", "5")).toBe(125);
+    expect(durationInMinutes("37", "40")).toBeCloseTo(37.67, 2);
     expect(durationInSeconds("", "")).toBeNull();
     expect(durationInSeconds("1", "7.25")).toBe(67.25);
   });

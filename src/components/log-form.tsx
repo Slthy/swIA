@@ -19,8 +19,8 @@ interface Values {
   time25yBreaststrokeSeconds: string; time25yFreestyleSeconds: string; time25yFlySeconds: string; time25yBackstrokeSeconds: string;
   pace3x100FreestyleMinutes: string; pace3x100FreestyleSeconds: string;
   kickCount: string; strokeCount: string;
-  zone1Hours: string; zone2Hours: string; zone3Hours: string; zone4Hours: string; zone5Hours: string;
   zone1Minutes: string; zone2Minutes: string; zone3Minutes: string; zone4Minutes: string; zone5Minutes: string;
+  zone1Seconds: string; zone2Seconds: string; zone3Seconds: string; zone4Seconds: string; zone5Seconds: string;
 }
 
 const initialValues: Values = {
@@ -29,7 +29,7 @@ const initialValues: Values = {
   time25yBreaststrokeSeconds: "", time25yFreestyleSeconds: "", time25yFlySeconds: "", time25yBackstrokeSeconds: "",
   pace3x100FreestyleMinutes: "", pace3x100FreestyleSeconds: "",
   kickCount: "", strokeCount: "", zone1Minutes: "", zone2Minutes: "", zone3Minutes: "", zone4Minutes: "", zone5Minutes: "",
-  zone1Hours: "", zone2Hours: "", zone3Hours: "", zone4Hours: "", zone5Hours: "",
+  zone1Seconds: "", zone2Seconds: "", zone3Seconds: "", zone4Seconds: "", zone5Seconds: "",
 };
 
 export function LogForm({ initialSession, athleteId, preview = false }: { initialSession?: SessionKey; athleteId?: string; preview?: boolean }) {
@@ -154,14 +154,14 @@ const stroke25Fields: Record<Stroke25, { minutes: keyof Values; seconds: keyof V
   fly: { minutes: "time25yFlyMinutes", seconds: "time25yFlySeconds" },
   backstroke: { minutes: "time25yBackstrokeMinutes", seconds: "time25yBackstrokeSeconds" },
 };
-function PracticeFields({ values, set }: FieldProps) { return <div className="space-y-7"><ScaleInput label="Session RPE" value={values.rpe} onChange={(value) => set("rpe", value)} /><ScaleInput label="Post-session fatigue" value={values.fatigue} onChange={(value) => set("fatigue", value)} /><div><p className="mb-3 text-sm font-semibold text-[#304a5d]">Heart-rate zone duration <span className="font-normal text-[#82929d]">· optional</span></p><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{[1,2,3,4,5].map((zone) => <HoursMinutesField key={zone} label={`Zone ${zone}`} hours={values[`zone${zone}Hours` as keyof Values] as string} minutes={values[`zone${zone}Minutes` as keyof Values] as string} onHoursChange={(value) => set(`zone${zone}Hours` as keyof Values, value)} onMinutesChange={(value) => set(`zone${zone}Minutes` as keyof Values, value)} maxHours={6} />)}</div></div></div>; }
+function PracticeFields({ values, set }: FieldProps) { return <div className="space-y-7"><ScaleInput label="Session RPE" value={values.rpe} onChange={(value) => set("rpe", value)} /><ScaleInput label="Post-session fatigue" value={values.fatigue} onChange={(value) => set("fatigue", value)} /><div><p className="mb-3 text-sm font-semibold text-[#304a5d]">Heart-rate zone duration <span className="font-normal text-[#82929d]">· optional · minutes and seconds</span></p><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{[1,2,3,4,5].map((zone) => <MinutesSecondsField key={zone} label={`Zone ${zone}`} minutes={values[`zone${zone}Minutes` as keyof Values] as string} seconds={values[`zone${zone}Seconds` as keyof Values] as string} onMinutesChange={(value) => set(`zone${zone}Minutes` as keyof Values, value)} onSecondsChange={(value) => set(`zone${zone}Seconds` as keyof Values, value)} maxMinutes={360} secondsStep="1" />)}</div></div></div>; }
 
 interface FieldProps { values: Values; set: (field: keyof Values, value: string | number) => void }
 function NumberField({ label, ariaLabel = label, suffix, value, onChange, min = 0, max, step = "1" }: { label: string; ariaLabel?: string; suffix?: string; value: string; onChange: (value: string) => void; min?: number; max?: number; step?: string }) { return <label><span className="mb-2 block text-xs font-semibold text-[#526778]">{label}</span><span className="flex min-h-12 items-center rounded-xl border border-[#d5e0e5] bg-white px-3 focus-within:border-[#16a5b8]"><input aria-label={ariaLabel} type="number" inputMode={step === "1" ? "numeric" : "decimal"} value={value} onChange={(event) => onChange(event.target.value)} min={min} max={max} step={step} className="min-w-0 flex-1 bg-transparent py-3 text-sm font-semibold outline-none" /><span className="text-xs text-[#8a99a2]">{suffix}</span></span></label>; }
 
 function HoursMinutesField({ label, optional = false, hours, minutes, onHoursChange, onMinutesChange, maxHours }: { label: string; optional?: boolean; hours: string; minutes: string; onHoursChange: (value: string) => void; onMinutesChange: (value: string) => void; maxHours: number }) { return <fieldset><legend className="mb-2 text-xs font-semibold text-[#526778]">{label}{optional && <span className="font-normal text-[#82929d]"> · optional</span>}</legend><div className="grid grid-cols-2 gap-3"><NumberField label="Hours" ariaLabel={`${label} hours`} suffix="hr" value={hours} onChange={onHoursChange} min={0} max={maxHours} /><NumberField label="Minutes" ariaLabel={`${label} minutes`} suffix="min" value={minutes} onChange={onMinutesChange} min={0} max={59} /></div></fieldset>; }
 
-function MinutesSecondsField({ label, minutes, seconds, onMinutesChange, onSecondsChange, maxMinutes }: { label: string; minutes: string; seconds: string; onMinutesChange: (value: string) => void; onSecondsChange: (value: string) => void; maxMinutes: number }) { return <fieldset><legend className="mb-2 text-xs font-semibold text-[#526778]">{label}</legend><div className="grid grid-cols-2 gap-3"><NumberField label="Minutes" ariaLabel={`${label} minutes`} suffix="min" value={minutes} onChange={onMinutesChange} min={0} max={maxMinutes} /><NumberField label="Seconds" ariaLabel={`${label} seconds`} suffix="sec" value={seconds} onChange={onSecondsChange} min={0} max={59.99} step="0.01" /></div></fieldset>; }
+function MinutesSecondsField({ label, minutes, seconds, onMinutesChange, onSecondsChange, maxMinutes, secondsStep = "0.01" }: { label: string; minutes: string; seconds: string; onMinutesChange: (value: string) => void; onSecondsChange: (value: string) => void; maxMinutes: number; secondsStep?: string }) { return <fieldset><legend className="mb-2 text-xs font-semibold text-[#526778]">{label}</legend><div className="grid grid-cols-2 gap-3"><NumberField label="Minutes" ariaLabel={`${label} minutes`} suffix="min" value={minutes} onChange={onMinutesChange} min={0} max={maxMinutes} /><NumberField label="Seconds" ariaLabel={`${label} seconds`} suffix="sec" value={seconds} onChange={onSecondsChange} min={0} max={secondsStep === "1" ? 59 : 59.99} step={secondsStep} /></div></fieldset>; }
 
 function logTypeForSession(session: SessionKey): LogType { return session === "daily_wellness" ? "wellness" : session === "monday_am_test" ? "monday_test" : session === "friday_am_test" ? "friday_test" : "practice"; }
 function optional(value: string) { return value === "" ? null : Number(value); }
@@ -190,11 +190,11 @@ function buildPayload(logType: LogType, sessionKey: SessionKey, context: DeviceD
     ...base,
     rpe: values.rpe,
     fatigue: values.fatigue,
-    zone1Minutes: durationInMinutes(values.zone1Hours, values.zone1Minutes),
-    zone2Minutes: durationInMinutes(values.zone2Hours, values.zone2Minutes),
-    zone3Minutes: durationInMinutes(values.zone3Hours, values.zone3Minutes),
-    zone4Minutes: durationInMinutes(values.zone4Hours, values.zone4Minutes),
-    zone5Minutes: durationInMinutes(values.zone5Hours, values.zone5Minutes),
+    zone1Minutes: durationInMinutes(values.zone1Minutes, values.zone1Seconds),
+    zone2Minutes: durationInMinutes(values.zone2Minutes, values.zone2Seconds),
+    zone3Minutes: durationInMinutes(values.zone3Minutes, values.zone3Seconds),
+    zone4Minutes: durationInMinutes(values.zone4Minutes, values.zone4Seconds),
+    zone5Minutes: durationInMinutes(values.zone5Minutes, values.zone5Seconds),
   };
 }
 
@@ -203,9 +203,9 @@ export function sleepDurationInHours(hours: string, minutes: string) {
   return (hours === "" ? 0 : Number(hours)) + (minutes === "" ? 0 : Number(minutes)) / 60;
 }
 
-export function durationInMinutes(hours: string, minutes: string) {
-  if (hours === "" && minutes === "") return null;
-  return (hours === "" ? 0 : Number(hours)) * 60 + (minutes === "" ? 0 : Number(minutes));
+export function durationInMinutes(minutes: string, seconds: string) {
+  if (minutes === "" && seconds === "") return null;
+  return (minutes === "" ? 0 : Number(minutes)) + (seconds === "" ? 0 : Number(seconds)) / 60;
 }
 
 export function durationInSeconds(minutes: string, seconds: string) {
